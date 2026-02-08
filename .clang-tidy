@@ -1,0 +1,69 @@
+---
+Checks: |-
+  -*
+  abseil-*
+  boost-*
+  concurrency-*
+  darwin-*
+  linuxkernel-*
+  objc-*
+  performance-*
+  portability-*
+  cppcoreguidelines-*
+  -cppcoreguidelines-no-malloc
+  -cppcoreguidelines-pro-type-vararg
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
+  -cppcoreguidelines-pro-type-member-init
+  -cppcoreguidelines-pro-type-reinterpret-cast
+  -cppcoreguidelines-pro-type-const-cast
+  -cppcoreguidelines-pro-type-cstyle-cast
+  -cppcoreguidelines-owning-memory
+  -cppcoreguidelines-pro-type-static-cast-downcast
+  -cppcoreguidelines-pro-type-union-access
+  -cppcoreguidelines-narrowing-conversions
+  -cppcoreguidelines-pro-bounds-constant-array-index
+  -cppcoreguidelines-avoid-c-arrays
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay
+  google-readability-casting
+  google-default-arguments
+  google-runtime-int
+  google-runtime-operator
+  misc-*
+  -misc-non-private-member-variables-in-classes
+  modernize-*
+  -modernize-avoid-c-arrays
+  -modernize-avoid-bind
+  -modernize-use-trailing-return-type
+  -modernize-concat-nested-namespaces
+  readability-named-parameter
+  readability-make-member-function-const
+  readability-identifier-naming
+
+CheckOptions:
+  - key:             readability-identifier-naming.ClassCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ClassSuffix
+    value:           _t
+  - key:             readability-identifier-naming.ClassMemberCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ClassMethodCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           UPPER_CASE
+  - key:             readability-identifier-naming.FunctionCase
+    value:           lower_case
+  - key:             readability-identifier-naming.EnumCase
+    value:           lower_case
+  - key:             readability-identifier-naming.GlobalVariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.GlobalVariablePrefix
+    value:           g_
+  - key:             readability-identifier-naming.LocalVariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ParameterCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ValueTemplateParameterCase
+    value:           UPPER_CASE
+...
