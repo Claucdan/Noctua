@@ -1,0 +1,57 @@
+# IDE
+.idea
+.vscode
+compile_commands.json
+.cache
+
+# Artefacts
+bin/
+*build*/
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.onjs/
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug information files
+*.dwo
+
+# CMake
+*cmake*/
+/CMakeLists.txt
+/cmake-build-*
