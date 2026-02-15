@@ -8,7 +8,7 @@ project(
     'buildtype=release',
     'optimization=3',
   ],
-  subproject_dir: 'third_party',
+  subproject_dir: 'third-party',
   meson_version: '>=1.1.0',
 )
 
@@ -16,5 +16,44 @@ include_dirs = include_directories('.')
 
 thread_dep = dependency('threads')
 
-gtest_dep = dependency('gtest', main: true, required: true)
-benchmark_dep = dependency('benchmark', main: true, required: true)
+# Header only third-party
+add_project_arguments('-isystem' + meson.project_source_root()/'third-party/xxhash', language: 'cpp')
+add_project_arguments('-isystem' + meson.project_source_root()/'third-party/function2/include', language: 'cpp')
+
+# CMake based third-party
+cmake = import('cmake')
+
+default_defs = {'CMAKE_BUILD_TYPE' : 'Release'}
+
+gtest_opts = cmake.subproject_options()
+gtest_opts.add_cmake_defines(default_defs)
+gtest_opts.set_install(false)
+gtest_subproject = cmake.subproject('googletest', options: gtest_opts)
+gtest_lib = gtest_subproject.dependency('gtest', include_type : 'system')
+gmock_lib = gtest_subproject.dependency('gmock', include_type : 'system')
+
+gbenchmark_opts = cmake.subproject_options()
+gbenchmark_defs = default_defs + {'BENCHMARK_ENABLE_GTEST_TESTS' : false} + {'BENCHMARK_ENABLE_TESTING' : false}
+gbenchmark_opts.add_cmake_defines(gbenchmark_defs)
+gbenchmark_opts.set_install(false)
+gbenchmark_subproject = cmake.subproject('benchmark', options: gbenchmark_opts)
+gbenchmark_lib = gbenchmark_subproject.dependency('benchmark', include_type : 'system')
+
+fmt_opts = cmake.subproject_options()
+fmt_defs = default_defs + {'FMT_MASTER_PROJECT' : false}
+fmt_opts.add_cmake_defines(fmt_defs)
+fmt_opts.set_install(false)
+fmt_subproject = cmake.subproject('fmt', options: fmt_opts)
+fmt_lib = fmt_subproject.dependency('fmt', include_type : 'system')
+
+# System based libs
+boost_lib = dependency(
+  'boost',
+  modules : [
+    'asio',
+    'cobalt',
+    'system',
+    'thread',
+  ],
+  required : true
+)
