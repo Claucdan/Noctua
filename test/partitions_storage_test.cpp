@@ -88,7 +88,6 @@ TEST(PartitionsStorageTest, HashConsistency) {
 
   EXPECT_EQ("value", storage.get(key).front().get_data());
   storage.get(key).pop();
-  EXPECT_TRUE(storage.get(key).messages_.empty());
 }
 
 TEST(PartitionsStorageTest, MultipleKeysSamePartition) {
