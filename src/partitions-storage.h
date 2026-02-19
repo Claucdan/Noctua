@@ -7,7 +7,7 @@
 #include <concepts>
 #include <cstdint>
 
-namespace noctua::partitions {
+namespace noctua {
 
 class partititons_storage_t {
 public:
@@ -53,4 +53,4 @@ private:
   mutable ::common::fibers::shared_mutex_t mutex_;
 };
 
-} // namespace noctua::partitions
+} // namespace noctua

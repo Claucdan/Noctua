@@ -7,7 +7,7 @@
 #include <queue>
 #include <function2/function2.hpp>
 
-namespace noctua::partitions {
+namespace noctua {
 
 class partition_t {
 public:
@@ -43,4 +43,4 @@ private:
   mutable ::common::fibers::shared_mutex_t mutex_;
 };
 
-} // namespace noctua::partitions
+} // namespace noctua
