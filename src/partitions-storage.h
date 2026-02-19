@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/partitions/partition.h"
+#include "src/partition.h"
 
 #include "common/kassert.h"
 

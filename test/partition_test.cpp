@@ -1,4 +1,4 @@
-#include "src/partitions/partition.h"
+#include "src/partition.h"
 #include "src/common/message.h"
 
 #include <boost/cobalt.hpp>
@@ -13,7 +13,7 @@ using message_ptr_t = message_t::message_ptr_t;
 
 } // namespace
 
-namespace noctua::partitions {
+namespace noctua {
 
 TEST(PartitionTest, SingleReaderCoroutine) {
   partition_t partition;
@@ -112,4 +112,4 @@ TEST(PartitionTest, ReadWriteWithLocks) {
   boost::cobalt::run(reader_task());
 }
 
-} // namespace noctua::partitions
+} // namespace noctua
