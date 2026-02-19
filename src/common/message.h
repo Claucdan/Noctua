@@ -5,7 +5,7 @@
 #include <memory>
 #include <string_view>
 
-namespace noctua {
+namespace noctua::common {
 
 class message_t final {
 private:
@@ -53,4 +53,4 @@ private:
   char data_[];
 };
 
-} // namespace noctua
+} // namespace noctua::common
