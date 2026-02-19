@@ -1,0 +1,43 @@
+#pragma once
+
+#include "src/partitions/partition.h"
+
+#include "common/kassert.h"
+
+#include <concepts>
+#include <cstdint>
+
+namespace noctua::partitions {
+
+class partititons_storage_t {
+public:
+  partititons_storage_t() = delete;
+  partititons_storage_t(const partititons_storage_t& other) = delete;
+  partititons_storage_t(partititons_storage_t&& other) noexcept = delete;
+
+  explicit partititons_storage_t(size_t partitions_count)
+      : partitions_(partitions_count) {}
+
+  partititons_storage_t& operator=(const partititons_storage_t& other) = default;
+  partititons_storage_t& operator=(partititons_storage_t&& other) noexcept = default;
+
+  ~partititons_storage_t() = default;
+
+  [[nodiscard]] partition_t& get(uint32_t idx) {
+    kassert_lt(idx, partitions_.size());
+    return *partitions_[idx];
+  }
+
+  template<typename T, std::invocable<T> Hash = std::hash<T>>
+  [[nodiscard]] partition_t& get(T data) {
+    uint64_t hash = Hash(data);
+    return *partitions_[hash % partitions_.size()];
+  }
+
+private:
+  using partition_ptr_t = std::unique_ptr<partition_t>;
+
+  std::vector<partition_ptr_t> partitions_;
+};
+
+} // namespace noctua::partitions
