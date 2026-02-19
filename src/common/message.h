@@ -9,7 +9,7 @@ namespace noctua::common {
 
 class message_t final {
 private:
-  class deleter_t {
+  struct deleter_t {
     void operator()(message_t* data) {
       std::destroy_at(data);
       free(data);
