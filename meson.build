@@ -31,6 +31,7 @@ gtest_opts.set_install(false)
 gtest_subproject = cmake.subproject('googletest', options: gtest_opts)
 gtest_lib = gtest_subproject.dependency('gtest', include_type : 'system')
 gmock_lib = gtest_subproject.dependency('gmock', include_type : 'system')
+gtest_main_lib = gtest_subproject.dependency('gtest_main', include_type : 'system')
 
 gbenchmark_opts = cmake.subproject_options()
 gbenchmark_defs = default_defs + {'BENCHMARK_ENABLE_GTEST_TESTS' : false} + {'BENCHMARK_ENABLE_TESTING' : false}
@@ -58,13 +59,6 @@ boost_lib = dependency(
   required : true
 )
 
-temp = executable(
-  'temp',
-  files('src/temp.cpp'),
-  include_directories: include_dirs,
-  dependencies: [ fmt_lib, boost_lib ],
-)
-
 # Tests
 noctua_tests = executable(
   'noctua_tests',
@@ -75,6 +69,7 @@ noctua_tests = executable(
       thread_dep,
       boost_lib,
       gtest_lib,
+      gtest_main_lib,
   ],
   include_directories: include_dirs,
 )
