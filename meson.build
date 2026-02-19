@@ -57,3 +57,30 @@ boost_lib = dependency(
   ],
   required : true
 )
+
+temp = executable(
+  'temp',
+  files('src/temp.cpp'),
+  include_directories: include_dirs,
+  dependencies: [ fmt_lib, boost_lib ],
+)
+
+# Tests
+noctua_tests = executable(
+  'noctua_tests',
+  files(
+    'test/partition_test.cpp',
+  ),
+  dependencies: [
+      thread_dep,
+      boost_lib,
+      gtest_lib,
+  ],
+  include_directories: include_dirs,
+)
+test(
+  'noctua-test',
+  noctua_tests,
+  protocol: 'gtest',
+  timeout: 120
+)
