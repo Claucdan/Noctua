@@ -9,6 +9,7 @@
 namespace noctua::partitions {
 
 class partition_t {
+public:
   using message_t = common::message_t;
   using message_ptr_t = common::message_t::message_ptr_t;
 
