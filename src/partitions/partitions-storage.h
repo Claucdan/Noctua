@@ -23,6 +23,14 @@ public:
 
   ~partititons_storage_t() = default;
 
+  [[nodiscard]] auto read_lock() const noexcept {
+    return mutex_.scoped_lock_shared();
+  }
+
+  [[nodiscard]] auto write_lock() noexcept {
+    return mutex_.scoped_lock();
+  }
+
   [[nodiscard]] partition_t& get(uint32_t idx) noexcept {
     kassert_lt(idx, partitions_.size());
     return *partitions_[idx];
@@ -34,7 +42,7 @@ public:
     return *partitions_[hash % partitions_.size()];
   }
 
-  [[nodiscard]] size_t size() noexcept {
+  [[nodiscard]] size_t size() const noexcept {
     return partitions_.size();
   }
 
@@ -42,6 +50,7 @@ private:
   using partition_ptr_t = std::unique_ptr<partition_t>;
 
   std::vector<partition_ptr_t> partitions_;
+  mutable ::common::fibers::shared_mutex_t mutex_;
 };
 
 } // namespace noctua::partitions
