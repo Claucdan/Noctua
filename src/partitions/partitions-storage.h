@@ -23,15 +23,19 @@ public:
 
   ~partititons_storage_t() = default;
 
-  [[nodiscard]] partition_t& get(uint32_t idx) {
+  [[nodiscard]] partition_t& get(uint32_t idx) noexcept {
     kassert_lt(idx, partitions_.size());
     return *partitions_[idx];
   }
 
   template<typename T, std::invocable<T> Hash = std::hash<T>>
-  [[nodiscard]] partition_t& get(T data) {
+  [[nodiscard]] partition_t& get(T data) noexcept {
     uint64_t hash = Hash(data);
     return *partitions_[hash % partitions_.size()];
+  }
+
+  [[nodiscard]] size_t size() noexcept {
+    return partitions_.size();
   }
 
 private:
