@@ -4,6 +4,7 @@
 
 #include "common/sync-primitives/shared-mutex.h"
 
+#include <queue>
 #include <function2/function2.hpp>
 
 namespace noctua::partitions {
