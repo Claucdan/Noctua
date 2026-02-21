@@ -1,27 +1,26 @@
 #pragma once
 
-#include "src/partition.h"
+#include "src/partition_t.h"
 
-#include "common/kassert.h"
-
-#include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace noctua {
 
-class partititons_storage_t {
+class topic_t {
 public:
-  partititons_storage_t() = delete;
-  partititons_storage_t(const partititons_storage_t& other) = delete;
-  partititons_storage_t(partititons_storage_t&& other) noexcept = delete;
+  topic_t() = delete;
+  topic_t(const topic_t& other) = delete;
+  topic_t(topic_t&& other) noexcept = delete;
 
-  explicit partititons_storage_t(size_t partitions_count)
+  explicit topic_t(size_t partitions_count)
       : partitions_(partitions_count) {}
 
-  partititons_storage_t& operator=(const partititons_storage_t& other) = default;
-  partititons_storage_t& operator=(partititons_storage_t&& other) noexcept = default;
+  topic_t& operator=(const topic_t& other) = default;
+  topic_t& operator=(topic_t&& other) noexcept = default;
 
-  ~partititons_storage_t() = default;
+  ~topic_t() = default;
 
   [[nodiscard]] auto read_lock() const noexcept {
     return mutex_.scoped_lock_shared();
