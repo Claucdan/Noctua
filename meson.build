@@ -72,9 +72,10 @@ noctua = executable(
   include_directories: include_dirs,
 )
 
-unique_mutex_test = executable(
-  'unique_mutex_test',
+noctua_test = executable(
+  'noctua-test',
   files(
+    'test/message-queue-test.cpp',
     'test/sync-primitives-tests.cpp',
   ),
   dependencies: [
@@ -88,8 +89,8 @@ unique_mutex_test = executable(
 )
 
 test(
-  'unique_mutex_test',
-  unique_mutex_test,
+  'noctua_tests',
+  noctua_test,
   protocol: 'gtest',
   timeout: 120
 )
