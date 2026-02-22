@@ -75,7 +75,7 @@ noctua = executable(
 unique_mutex_test = executable(
   'unique_mutex_test',
   files(
-    'test/unique_mutex_test.cpp',
+    'test/sync-primitives-tests.cpp',
   ),
   dependencies: [
       fmt_lib,
