@@ -76,14 +76,27 @@ public:
 
   message_queue_t() = default;
   message_queue_t(const message_queue_t& other) = delete;
-  message_queue_t(message_queue_t&& other) noexcept = default;
+
+  message_queue_t(message_queue_t&& other) noexcept
+      : size_(other.size_), head_(other.head_), tail_(other.tail_) {
+    other.size_ = 0;
+    other.head_ = nullptr;
+    other.tail_ = nullptr;
+  }
 
   message_queue_t& operator=(const message_queue_t& other) = delete;
-  message_queue_t& operator=(message_queue_t&& other) noexcept = default;
+
+  message_queue_t& operator=(message_queue_t&& other) noexcept {
+    std::swap(size_, other.size_);
+    std::swap(head_, other.head_);
+    std::swap(tail_, other.tail_);
+    return *this;
+  }
 
   ~message_queue_t() {
+
     message_ptr_t current = head_;
-    while (head_ != nullptr) {
+    while (current != nullptr) {
       message_ptr_t old = current;
       current = current->get_next();
       message_t::destroy_message(old);
@@ -123,13 +136,13 @@ public:
   }
 
   iterator push(std::string_view msg) noexcept {
-    if (head_ == nullptr) {
-      head_ = message_t::create_message(msg);
-      tail_ = head_;
+    if (tail_ == nullptr) {
+      tail_ = message_t::create_message(msg);
+      head_ = tail_;
     } else {
-      auto new_head = message_t::create_message(msg);
-      new_head->set_next(head_);
-      head_ = new_head;
+      auto new_tail = message_t::create_message(msg);
+      tail_->set_next(new_tail);
+      tail_ = new_tail;
     }
 
     ++size_;
