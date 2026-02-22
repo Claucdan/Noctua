@@ -1,15 +1,39 @@
 #pragma once
 
 #include "common/fibers/task.h"
-#include <coroutine>
-#include <cstdint>
-#include <deque>
-#include <limits>
+
 #include <mutex>
+#include <deque>
+#include <utility>
+
+#include <function2/function2.hpp>
 
 namespace common::fibers {
 
 class unique_mutex_t {
+private:
+  template<typename CompletionToken>
+  auto async_lock(CompletionToken&& token) {
+    return boost::asio::async_initiate<CompletionToken, void(lock_guard_t)>(
+            [this](auto handler) {
+              using handler_type = decltype(handler);
+              auto h = std::make_shared<handler_type>(std::move(handler));
+              auto ex = boost::asio::get_associated_executor(*h);
+
+              std::unique_lock<std::mutex> lock(waiters_mutex_);
+
+              if (!locked_) {
+                locked_ = true;
+                lock.unlock();
+
+                boost::asio::post(ex, [this, h]() mutable { (*h)(lock_guard_t(*this)); });
+              } else {
+                waiters_.emplace_back([this, h]() mutable { (*h)(lock_guard_t(*this)); });
+              }
+            },
+            std::forward<CompletionToken>(token));
+  }
+
 public:
   class lock_guard_t {
   public:
@@ -17,67 +41,61 @@ public:
     lock_guard_t(const lock_guard_t&) = delete;
 
     lock_guard_t(lock_guard_t&& other) noexcept
-        : owned_(other.owned_), mutex_(other.mutex_) {
-      other.owned_ = false;
-    }
+        : mutex_(std::exchange(other.mutex_, nullptr)) {}
 
-    explicit lock_guard_t(unique_mutex_t* mutex)
-        : mutex_(mutex) {}
+    explicit lock_guard_t(unique_mutex_t& mutex)
+        : mutex_(&mutex) {}
 
     lock_guard_t& operator=(const lock_guard_t&) = delete;
 
     lock_guard_t& operator=(lock_guard_t&& other) noexcept {
       if (this != &other) {
-        if (owned_ && mutex_) {
-          mutex_->unlock();
-        }
-        mutex_ = other.mutex_;
-        owned_ = other.owned_;
-        other.owned_ = false;
+        unlock();
+        mutex_ = std::exchange(other.mutex_, nullptr);
       }
       return *this;
     }
 
     ~lock_guard_t() {
-      if (owned_ && mutex_) {
+      unlock();
+    }
+
+    void unlock() noexcept {
+      if (mutex_) {
         mutex_->unlock();
+        mutex_ = nullptr;
       }
     }
 
   private:
-    bool owned_{true};
     unique_mutex_t* mutex_;
 
     friend class unique_mutex_t;
   };
 
   common::fibers::task_t<lock_guard_t> lock() {
-    while (!try_lock()) {
-      co_await boost::asio::post(boost::asio::use_awaitable);
-    }
-    co_return lock_guard_t(this);
+    co_return co_await async_lock(boost::asio::use_awaitable);
   }
 
 private:
-  bool try_lock() noexcept {
-    return !locked_.exchange(true, std::memory_order_acquire);
-  }
-
   void unlock() {
-    std::unique_lock lock(waiters_mutex_);
+    std::unique_lock<std::mutex> lock(waiters_mutex_);
+
     if (waiters_.empty()) {
-      locked_.store(false, std::memory_order_release);
+      locked_ = false;
       return;
     }
-    auto handle = waiters_.front();
+
+    auto fn = std::move(waiters_.front());
     waiters_.pop_front();
     lock.unlock();
-    handle.resume();
+
+    fn();
   }
 
-  std::atomic<bool> locked_{false};
+  bool locked_{false};
   std::mutex waiters_mutex_;
-  std::deque<std::coroutine_handle<>> waiters_;
+  std::deque<fu2::function<void()>> waiters_;
 
   friend class lock_guard_t;
 };
