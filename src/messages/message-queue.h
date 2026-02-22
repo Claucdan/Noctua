@@ -81,7 +81,14 @@ public:
   message_queue_t& operator=(const message_queue_t& other) = delete;
   message_queue_t& operator=(message_queue_t&& other) noexcept = default;
 
-  ~message_queue_t() = default;
+  ~message_queue_t() {
+    message_ptr_t current = head_;
+    while (head_ != nullptr) {
+      message_ptr_t old = current;
+      current = current->get_next();
+      message_t::destroy_message(old);
+    }
+  }
 
   [[nodiscard]] const_iterator cbegin() const {
     return const_iterator{head_};
