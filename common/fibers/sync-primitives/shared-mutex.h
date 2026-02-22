@@ -2,6 +2,7 @@
 
 #include "common/fibers/task.h"
 
+#include <atomic>
 #include <coroutine>
 #include <cstdint>
 #include <deque>
@@ -93,16 +94,14 @@ public:
   };
 
   common::fibers::task_t<write_lock_guard_t> lock() {
-    co_await boost::asio::post(boost::asio::use_awaitable);
-    if (!try_lock()) {
+    while (!try_lock()) {
       co_await boost::asio::post(boost::asio::use_awaitable);
     }
     co_return write_lock_guard_t(this);
   }
 
   common::fibers::task_t<read_lock_guard_t> lock_shared() {
-    co_await boost::asio::post(boost::asio::use_awaitable);
-    if (!try_lock_shared()) {
+    while (!try_lock_shared()) {
       co_await boost::asio::post(boost::asio::use_awaitable);
     }
     co_return read_lock_guard_t(this);
@@ -141,7 +140,6 @@ private:
     std::unique_lock lock(waiters_mutex_);
     uint32_t old_state = state_.fetch_sub(1, std::memory_order_release);
     if (old_state == 1 && !write_waiters_.empty()) {
-      // Last shared lock released, wake a writer
       auto handle = write_waiters_.front();
       write_waiters_.pop_front();
       lock.unlock();

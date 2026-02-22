@@ -1,9 +1,10 @@
 #pragma once
 
 #include "common/fibers/task.h"
-
 #include <coroutine>
+#include <cstdint>
 #include <deque>
+#include <limits>
 #include <mutex>
 
 namespace common::fibers {
@@ -51,8 +52,7 @@ public:
   };
 
   common::fibers::task_t<lock_guard_t> lock() {
-    co_await boost::asio::post(boost::asio::use_awaitable);
-    if (!try_lock()) {
+    while (!try_lock()) {
       co_await boost::asio::post(boost::asio::use_awaitable);
     }
     co_return lock_guard_t(this);
