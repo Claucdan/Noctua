@@ -2,16 +2,58 @@
 
 #include "common/fibers/task.h"
 
-#include <atomic>
-#include <coroutine>
-#include <cstdint>
 #include <deque>
-#include <limits>
 #include <mutex>
+#include <utility>
+
+#include <function2/function2.hpp>
 
 namespace common::fibers {
 
 class shared_mutex_t {
+private:
+  template<typename CompletionToken>
+  auto async_lock(CompletionToken&& token) {
+    return boost::asio::async_initiate<CompletionToken, void(write_lock_guard_t)>(
+            [this](auto handler) {
+              using handler_type = decltype(handler);
+              auto h = std::make_shared<handler_type>(std::move(handler));
+
+              std::unique_lock<std::mutex> lock(state_mutex_);
+              if (!writer_active_ && reader_count_ == 0) {
+                writer_active_ = true;
+                lock.unlock();
+                boost::asio::post(boost::asio::get_associated_executor(*h),
+                                  [this, h]() mutable { (*h)(write_lock_guard_t(*this)); });
+              } else {
+                ++writers_waiting_;
+                unique_waiters_.emplace_back([this, h]() mutable { (*h)(write_lock_guard_t(*this)); });
+              }
+            },
+            std::forward<CompletionToken>(token));
+  }
+
+  template<typename CompletionToken>
+  auto async_lock_shared(CompletionToken&& token) {
+    return boost::asio::async_initiate<CompletionToken, void(read_lock_guard_t)>(
+            [this](auto handler) {
+              using handler_type = decltype(handler);
+              auto h = std::make_shared<handler_type>(std::move(handler));
+
+              std::unique_lock<std::mutex> lock(state_mutex_);
+              if (!writer_active_ && writers_waiting_ == 0) {
+                ++reader_count_;
+                lock.unlock();
+
+                boost::asio::post(boost::asio::get_associated_executor(*h),
+                                  [this, h]() mutable { (*h)(read_lock_guard_t(*this)); });
+              } else {
+                shared_waiters_.emplace_back([this, h]() mutable { (*h)(read_lock_guard_t(*this)); });
+              }
+            },
+            std::forward<CompletionToken>(token));
+  }
+
 public:
   class write_lock_guard_t {
   public:
@@ -19,38 +61,34 @@ public:
     write_lock_guard_t(const write_lock_guard_t&) = delete;
 
     write_lock_guard_t(write_lock_guard_t&& other) noexcept
-        : owned_(other.owned_), mutex_(other.mutex_) {
-      other.owned_ = false;
-    }
+        : mutex_(std::exchange(other.mutex_, nullptr)) {}
 
-    explicit write_lock_guard_t(shared_mutex_t* mutex)
-        : mutex_(mutex) {}
+    explicit write_lock_guard_t(shared_mutex_t& mutex)
+        : mutex_(&mutex) {}
 
     write_lock_guard_t& operator=(const write_lock_guard_t&) = delete;
 
     write_lock_guard_t& operator=(write_lock_guard_t&& other) noexcept {
       if (this != &other) {
-        if (owned_ && mutex_) {
-          mutex_->unlock();
-        }
-        mutex_ = other.mutex_;
-        owned_ = other.owned_;
-        other.owned_ = false;
+        unlock();
+        mutex_ = std::exchange(other.mutex_, nullptr);
       }
       return *this;
     }
 
     ~write_lock_guard_t() {
-      if (owned_ && mutex_) {
+      unlock();
+    }
+
+    void unlock() noexcept {
+      if (mutex_) {
         mutex_->unlock();
+        mutex_ = nullptr;
       }
     }
 
   private:
-    bool owned_{true};
-    shared_mutex_t* mutex_;
-
-    friend class shared_mutex_t;
+    shared_mutex_t* mutex_{nullptr};
   };
 
   class read_lock_guard_t {
@@ -59,108 +97,89 @@ public:
     read_lock_guard_t(const read_lock_guard_t&) = delete;
 
     read_lock_guard_t(read_lock_guard_t&& other) noexcept
-        : owned_(other.owned_), mutex_(other.mutex_) {
-      other.owned_ = false;
-    }
+        : mutex_(std::exchange(other.mutex_, nullptr)) {}
 
-    explicit read_lock_guard_t(shared_mutex_t* mutex)
-        : mutex_(mutex) {}
+    explicit read_lock_guard_t(shared_mutex_t& mutex)
+        : mutex_(&mutex) {}
 
     read_lock_guard_t& operator=(const read_lock_guard_t&) = delete;
 
     read_lock_guard_t& operator=(read_lock_guard_t&& other) noexcept {
       if (this != &other) {
-        if (owned_ && mutex_) {
-          mutex_->unlock_shared();
-        }
-        mutex_ = other.mutex_;
-        owned_ = other.owned_;
-        other.owned_ = false;
+        unlock();
+        mutex_ = std::exchange(other.mutex_, nullptr);
       }
       return *this;
     }
 
     ~read_lock_guard_t() {
-      if (owned_ && mutex_) {
+      unlock();
+    }
+
+    void unlock() {
+      if (mutex_) {
         mutex_->unlock_shared();
+        mutex_ = nullptr;
       }
     }
 
   private:
-    bool owned_{true};
     shared_mutex_t* mutex_;
-
-    friend class shared_mutex_t;
   };
 
   common::fibers::task_t<write_lock_guard_t> lock() {
-    while (!try_lock()) {
-      co_await boost::asio::post(boost::asio::use_awaitable);
-    }
-    co_return write_lock_guard_t(this);
+    co_return co_await async_lock(boost::asio::use_awaitable);
   }
 
   common::fibers::task_t<read_lock_guard_t> lock_shared() {
-    while (!try_lock_shared()) {
-      co_await boost::asio::post(boost::asio::use_awaitable);
-    }
-    co_return read_lock_guard_t(this);
+    co_return co_await async_lock_shared(boost::asio::use_awaitable);
   }
 
 private:
-  bool try_lock() noexcept {
-    uint32_t expected = 0;
-    return state_.compare_exchange_strong(expected, WRITE_LOCKED, std::memory_order_acquire);
-  }
+  void unlock() {
+    std::unique_lock<std::mutex> lock(state_mutex_);
+    writer_active_ = false;
 
-  bool try_lock_shared() noexcept {
-    uint32_t expected = state_.load(std::memory_order_relaxed);
-    while (expected != WRITE_LOCKED) {
-      if (state_.compare_exchange_weak(expected, expected + 1, std::memory_order_acquire)) {
-        return true;
+    if (!unique_waiters_.empty()) {
+      auto fn = std::move(unique_waiters_.front());
+      unique_waiters_.pop_front();
+      --writers_waiting_;
+      writer_active_ = true;
+      lock.unlock();
+      fn();
+    } else {
+      while (!shared_waiters_.empty()) {
+        auto fn = std::move(shared_waiters_.front());
+        shared_waiters_.pop_front();
+        ++reader_count_;
+        lock.unlock();
+        fn();
+        lock.lock();
       }
     }
-    return false;
   }
 
-  void unlock() noexcept {
-    std::unique_lock lock(waiters_mutex_);
-    if (write_waiters_.empty()) {
-      state_.store(0, std::memory_order_release);
-      resume_shared_waiters();
-      return;
-    }
-    auto handle = write_waiters_.front();
-    write_waiters_.pop_front();
-    lock.unlock();
-    handle.resume();
-  }
+  void unlock_shared() {
+    std::unique_lock<std::mutex> lock(state_mutex_);
 
-  void unlock_shared() noexcept {
-    std::unique_lock lock(waiters_mutex_);
-    uint32_t old_state = state_.fetch_sub(1, std::memory_order_release);
-    if (old_state == 1 && !write_waiters_.empty()) {
-      auto handle = write_waiters_.front();
-      write_waiters_.pop_front();
+    if (--reader_count_ == 0 && !unique_waiters_.empty()) {
+      auto fn = std::move(unique_waiters_.front());
+      unique_waiters_.pop_front();
+      --writers_waiting_;
+      writer_active_ = true;
       lock.unlock();
-      handle.resume();
+      fn();
     }
   }
 
-  void resume_shared_waiters() noexcept {
-    while (!shared_waiters_.empty()) {
-      auto handle = shared_waiters_.front();
-      shared_waiters_.pop_front();
-      handle.resume();
-    }
-  }
+  std::mutex state_mutex_;
 
-  static constexpr uint32_t WRITE_LOCKED = std::numeric_limits<uint32_t>::max();
+  bool writer_active_ = false;
+  std::size_t reader_count_ = 0;
+  std::size_t writers_waiting_ = 0;
 
-  std::atomic<uint32_t> state_{0}; // max() = write locked, 0 = unlocked, >0 = N readers
-  std::mutex waiters_mutex_;
-  std::deque<std::coroutine_handle<>> write_waiters_;
-  std::deque<std::coroutine_handle<>> shared_waiters_;
+  std::deque<fu2::function<void()>> shared_waiters_;
+  std::deque<fu2::function<void()>> unique_waiters_;
 
   friend class read_lock_guard_t;
   friend class write_lock_guard_t;
