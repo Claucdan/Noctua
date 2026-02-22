@@ -59,23 +59,37 @@ boost_lib = dependency(
   required : true
 )
 
-# Tests
-noctua_tests = executable(
-  'noctua_tests',
+noctua = executable(
+  'server',
   files(
-    'test/partition_test.cpp',
+    'tcp_example.cpp',
   ),
   dependencies: [
-      thread_dep,
+      fmt_lib,
       boost_lib,
+      thread_dep,
+  ],
+  include_directories: include_dirs,
+)
+
+unique_mutex_test = executable(
+  'unique_mutex_test',
+  files(
+    'test/unique_mutex_test.cpp',
+  ),
+  dependencies: [
+      fmt_lib,
+      boost_lib,
+      thread_dep,
       gtest_lib,
       gtest_main_lib,
   ],
   include_directories: include_dirs,
 )
+
 test(
-  'noctua-test',
-  noctua_tests,
+  'unique_mutex_test',
+  unique_mutex_test,
   protocol: 'gtest',
   timeout: 120
 )
