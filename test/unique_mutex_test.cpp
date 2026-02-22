@@ -36,67 +36,67 @@ TEST(unique_mutex_test, basic_lock) {
   EXPECT_EQ(real, counter.load());
 }
 
-// TEST(shared_mutex_test, basic_lock) {
-//   uint32_t real{0};
-//   std::atomic<uint32_t> counter{0};
-//   common::fibers::shared_mutex_t mutex;
-//
-//   auto coro = [&]() -> common::fibers::task_t<void> {
-//     {
-//       for (int i = 0; i < 100000; ++i) {
-//         ++counter;
-//         auto lock = co_await mutex.lock();
-//         ++real;
-//       }
-//       co_return;
-//     }
-//   };
-//
-//   boost::asio::thread_pool pool(2);
-//
-//   boost::asio::co_spawn(pool, coro(), boost::asio::detached);
-//   boost::asio::co_spawn(pool, coro(), boost::asio::detached);
-//
-//   pool.join();
-//
-//   EXPECT_EQ(real, counter.load());
-// }
-//
-// TEST(shared_mutex_test, mixed_lock) {
-//   uint32_t real{0};
-//   std::atomic<uint32_t> counter{0};
-//   common::fibers::shared_mutex_t mutex;
-//
-//   auto write_coro = [&]() -> common::fibers::task_t<void> {
-//     {
-//       for (int i = 0; i < 100000; ++i) {
-//         auto lock = co_await mutex.lock();
-//         fmt::println("write [{}] : [{}]", real, counter.load());
-//         ++real;
-//         ++counter;
-//       }
-//       co_return;
-//     }
-//   };
-//   auto read_coro = [&]() -> common::fibers::task_t<void> {
-//     {
-//       for (int i = 0; i < 100000; ++i) {
-//         auto lock = co_await mutex.lock_shared();
-//         fmt::println("read [{}] : [{}]", real, counter.load());
-//         EXPECT_EQ(real, counter.load());
-//       }
-//       co_return;
-//     }
-//   };
-//
-//   boost::asio::thread_pool pool(4);
-//
-//   boost::asio::co_spawn(pool, write_coro(), boost::asio::detached);
-//   boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
-//   boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
-//   boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
-//
-//   pool.join();
-//
-//   EXPECT_EQ(real, counter.load());
-// }
+TEST(shared_mutex_test, basic_lock) {
+  uint32_t real{0};
+  std::atomic<uint32_t> counter{0};
+  common::fibers::shared_mutex_t mutex;
+
+  auto coro = [&]() -> common::fibers::task_t<void> {
+    {
+      for (int i = 0; i < 100000; ++i) {
+        ++counter;
+        auto lock = co_await mutex.lock();
+        ++real;
+      }
+      co_return;
+    }
+  };
+
+  boost::asio::thread_pool pool(2);
+
+  boost::asio::co_spawn(pool, coro(), boost::asio::detached);
+  boost::asio::co_spawn(pool, coro(), boost::asio::detached);
+
+  pool.join();
+
+  EXPECT_EQ(real, counter.load());
+}
+
+TEST(shared_mutex_test, mixed_lock) {
+  uint32_t real{0};
+  std::atomic<uint32_t> counter{0};
+  common::fibers::shared_mutex_t mutex;
+
+  auto write_coro = [&]() -> common::fibers::task_t<void> {
+    {
+      for (int i = 0; i < 100; ++i) {
+        auto lock = co_await mutex.lock();
+        fmt::println("write [{}] : [{}]", real, counter.load());
+        ++real;
+        ++counter;
+      }
+      co_return;
+    }
+  };
+  auto read_coro = [&]() -> common::fibers::task_t<void> {
+    {
+      for (int i = 0; i < 100; ++i) {
+        auto lock = co_await mutex.lock_shared();
+        fmt::println("read [{}] : [{}]", real, counter.load());
+        EXPECT_EQ(real, counter.load());
+      }
+      co_return;
+    }
+  };
+
+  boost::asio::thread_pool pool(4);
+
+  boost::asio::co_spawn(pool, write_coro(), boost::asio::detached);
+  boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
+  boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
+  boost::asio::co_spawn(pool, read_coro(), boost::asio::detached);
+
+  pool.join();
+
+  EXPECT_EQ(real, counter.load());
+}
