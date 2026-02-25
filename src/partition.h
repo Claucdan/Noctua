@@ -27,11 +27,11 @@ public:
   ~partition_t() = default;
 
   [[nodiscard]] common::fibers::task_t<read_lock_t> read_lock() const noexcept {
-    co_return mutex_.lock_shared();
+    co_return co_await mutex_.lock_shared();
   }
 
   [[nodiscard]] common::fibers::task_t<write_lock_t> write_lock() noexcept {
-    co_return mutex_.lock();
+    co_return co_await mutex_.lock();
   }
 
   const_iterator cbegin() const noexcept {
