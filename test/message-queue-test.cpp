@@ -1,5 +1,5 @@
 
-#include "src/messages/message-queue.h"
+#include "messages/message-queue.h"
 
 #include <gtest/gtest.h>
 

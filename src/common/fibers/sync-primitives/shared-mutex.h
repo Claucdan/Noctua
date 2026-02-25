@@ -8,7 +8,7 @@
 
 #include <function2/function2.hpp>
 
-namespace common::fibers {
+namespace noctua::fibers {
 
 class shared_mutex_t {
 private:
@@ -127,11 +127,11 @@ public:
     shared_mutex_t* mutex_;
   };
 
-  common::fibers::task_t<write_lock_guard_t> lock() {
+  fibers::task_t<write_lock_guard_t> lock() {
     co_return co_await async_lock(boost::asio::use_awaitable);
   }
 
-  common::fibers::task_t<read_lock_guard_t> lock_shared() {
+  fibers::task_t<read_lock_guard_t> lock_shared() {
     co_return co_await async_lock_shared(boost::asio::use_awaitable);
   }
 
@@ -185,4 +185,4 @@ private:
   friend class write_lock_guard_t;
 };
 
-} // namespace common::fibers
+} // namespace noctua::fibers

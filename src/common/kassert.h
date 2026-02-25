@@ -1,10 +1,9 @@
 #pragma once
 
 #include <cstdlib>
-#include <utility>
-#include <fmt/format.h>
+#include <fmt/core.h>
 
-namespace common {
+namespace noctua {
 
 #define kassert(expr, msg, ...)                                                                                        \
   {                                                                                                                    \
@@ -31,4 +30,4 @@ namespace common {
 #define kassert_le(left, right) kassert_cmp((left), (right), <=)
 #define kassert_lt(left, right) kassert_cmp((left), (right), <)
 
-} // namespace common
+} // namespace noctua

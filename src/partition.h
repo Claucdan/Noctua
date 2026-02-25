@@ -14,8 +14,8 @@ public:
   using iterator = message_queue_t::iterator;
   using const_iterator = message_queue_t::const_iterator;
 
-  using read_lock_t = common::fibers::shared_mutex_t::read_lock_guard_t;
-  using write_lock_t = common::fibers::shared_mutex_t::write_lock_guard_t;
+  using read_lock_t = fibers::shared_mutex_t::read_lock_guard_t;
+  using write_lock_t = fibers::shared_mutex_t::write_lock_guard_t;
 
   partition_t() = default;
   partition_t(const partition_t&) = delete;
@@ -26,11 +26,11 @@ public:
 
   ~partition_t() = default;
 
-  [[nodiscard]] common::fibers::task_t<read_lock_t> read_lock() const noexcept {
+  [[nodiscard]] fibers::task_t<read_lock_t> read_lock() const noexcept {
     co_return co_await mutex_.lock_shared();
   }
 
-  [[nodiscard]] common::fibers::task_t<write_lock_t> write_lock() noexcept {
+  [[nodiscard]] fibers::task_t<write_lock_t> write_lock() noexcept {
     co_return co_await mutex_.lock();
   }
 
@@ -84,7 +84,7 @@ public:
 
 private:
   message_queue_t queue_;
-  mutable common::fibers::shared_mutex_t mutex_;
+  mutable fibers::shared_mutex_t mutex_;
 };
 
 } // namespace noctua

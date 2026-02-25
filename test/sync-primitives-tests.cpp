@@ -16,12 +16,14 @@ namespace {
 inline constexpr uint64_t TEST_COUNT = 100'000;
 }
 
+namespace noctua {
+
 TEST(unique_mutex_test, basic_lock) {
   uint32_t real{0};
   std::atomic<uint32_t> counter{0};
-  common::fibers::unique_mutex_t mutex;
+  fibers::unique_mutex_t mutex;
 
-  auto coro = [&]() -> common::fibers::task_t<void> {
+  auto coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         ++counter;
@@ -45,9 +47,9 @@ TEST(unique_mutex_test, basic_lock) {
 TEST(shared_mutex_test, basic_lock) {
   uint32_t real{0};
   std::atomic<uint32_t> counter{0};
-  common::fibers::shared_mutex_t mutex;
+  fibers::shared_mutex_t mutex;
 
-  auto coro = [&]() -> common::fibers::task_t<void> {
+  auto coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         ++counter;
@@ -71,9 +73,9 @@ TEST(shared_mutex_test, basic_lock) {
 TEST(shared_mutex_test, mixed_lock) {
   uint32_t real{0};
   std::atomic<uint32_t> counter{0};
-  common::fibers::shared_mutex_t mutex;
+  fibers::shared_mutex_t mutex;
 
-  auto write_coro = [&]() -> common::fibers::task_t<void> {
+  auto write_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await mutex.lock();
@@ -83,7 +85,7 @@ TEST(shared_mutex_test, mixed_lock) {
       co_return;
     }
   };
-  auto read_coro = [&]() -> common::fibers::task_t<void> {
+  auto read_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await mutex.lock_shared();
@@ -104,3 +106,5 @@ TEST(shared_mutex_test, mixed_lock) {
 
   EXPECT_EQ(real, counter.load());
 }
+
+} // namespace noctua

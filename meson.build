@@ -12,7 +12,7 @@ project(
   meson_version: '>=1.1.0',
 )
 
-include_dirs = include_directories('.')
+include_dirs = include_directories('src')
 
 thread_dep = dependency('threads')
 

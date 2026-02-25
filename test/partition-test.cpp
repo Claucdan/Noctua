@@ -16,7 +16,7 @@ TEST(partition_test_t, constructor_creates_empty_partition) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.read_lock();
             EXPECT_TRUE(partition.empty());
             EXPECT_EQ(partition.size(), 0);
@@ -35,7 +35,7 @@ TEST(partition_test_t, push_adds_message_to_front) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             auto it = partition.push(TEST_MESSAGE);
 
@@ -59,7 +59,7 @@ TEST(partition_test_t, push_multiple_messages) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(FIRST_MESSAGE);
             partition.push(SECOND_MESSAGE);
@@ -90,7 +90,7 @@ TEST(partition_test_t, pop_removes_front_message) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(FIRST_MESSAGE);
             partition.push(SECOND_MESSAGE);
@@ -116,7 +116,7 @@ TEST(partition_test_t, pop_on_empty_partition_does_nothing) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             EXPECT_TRUE(partition.empty());
 
@@ -137,7 +137,7 @@ TEST(partition_test_t, iterator_dereference_returns_message) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(TEST_MESSAGE);
             auto it = partition.begin();
@@ -157,7 +157,7 @@ TEST(partition_test_t, iterator_arrow_operator_works) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(TEST_MESSAGE);
             auto it = partition.begin();
@@ -177,7 +177,7 @@ TEST(partition_test_t, iterator_pre_increment_works) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(FIRST_MESSAGE);
             partition.push(SECOND_MESSAGE);
@@ -202,7 +202,7 @@ TEST(partition_test_t, iterator_post_increment_works) {
   boost::asio::io_context io_ctx;
   boost::asio::co_spawn(
           io_ctx,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition.push(FIRST_MESSAGE);
             partition.push(SECOND_MESSAGE);
@@ -227,7 +227,7 @@ TEST(partition_test_t, const_iterator_can_be_created_from_cbegin) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(TEST_MESSAGE);
               co_return;
@@ -239,7 +239,7 @@ TEST(partition_test_t, const_iterator_can_be_created_from_cbegin) {
   boost::asio::io_context io_ctx2;
   boost::asio::co_spawn(
           io_ctx2,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.read_lock();
             auto cit = partition.cbegin();
             EXPECT_EQ((*cit).get_data(), TEST_MESSAGE);
@@ -260,7 +260,7 @@ TEST(partition_test_t, const_iterator_traversal_works) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(FIRST_MESSAGE);
               partition.push(SECOND_MESSAGE);
@@ -273,7 +273,7 @@ TEST(partition_test_t, const_iterator_traversal_works) {
   boost::asio::io_context io_ctx2;
   boost::asio::co_spawn(
           io_ctx2,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.read_lock();
             auto cit = partition.cbegin();
             EXPECT_EQ((*cit).get_data(), FIRST_MESSAGE);
@@ -295,7 +295,7 @@ TEST(partition_test_t, non_const_iterator_converts_to_const_iterator) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(TEST_MESSAGE);
               co_return;
@@ -307,7 +307,7 @@ TEST(partition_test_t, non_const_iterator_converts_to_const_iterator) {
   boost::asio::io_context io_ctx2;
   boost::asio::co_spawn(
           io_ctx2,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             partition_t::iterator it = partition.begin();
             partition_t::const_iterator cit = it;
@@ -328,7 +328,7 @@ TEST(partition_test_t, iterators_equality_comparison_works) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(TEST_MESSAGE);
               co_return;
@@ -341,7 +341,7 @@ TEST(partition_test_t, iterators_equality_comparison_works) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               auto it1 = partition.begin();
               auto it2 = partition.begin();
@@ -359,7 +359,7 @@ TEST(partition_test_t, iterators_equality_comparison_works) {
     boost::asio::io_context io_ctx3;
     boost::asio::co_spawn(
             io_ctx3,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               auto cit1 = partition.cbegin();
               auto cit2 = partition.cbegin();
@@ -381,7 +381,7 @@ TEST(partition_test_t, iterators_cross_comparison_works) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(TEST_MESSAGE);
               co_return;
@@ -393,7 +393,7 @@ TEST(partition_test_t, iterators_cross_comparison_works) {
   boost::asio::io_context io_ctx2;
   boost::asio::co_spawn(
           io_ctx2,
-          [&]() -> common::fibers::task_t<void> {
+          [&]() -> fibers::task_t<void> {
             auto lock = co_await partition.write_lock();
             auto it = partition.begin();
             auto cit = partition_t::const_iterator{it};
@@ -414,7 +414,7 @@ TEST(partition_test_t, front_returns_iterator_to_begin) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(FIRST_MESSAGE);
               partition.push(SECOND_MESSAGE);
@@ -431,7 +431,7 @@ TEST(partition_test_t, front_returns_iterator_to_begin) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               const auto& const_partition = partition;
               EXPECT_EQ(const_partition.front(), const_partition.cbegin());
@@ -452,7 +452,7 @@ TEST(partition_test_t, back_returns_iterator_to_begin) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               partition.push(FIRST_MESSAGE);
               partition.push(SECOND_MESSAGE);
@@ -469,7 +469,7 @@ TEST(partition_test_t, back_returns_iterator_to_begin) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               const auto& const_partition = partition;
               EXPECT_EQ(const_partition.back(), const_partition.cbegin());
@@ -490,7 +490,7 @@ TEST(partition_test_t, range_based_for_loop_works_with_iterator) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               for (const auto& msg : MESSAGES) {
                 partition.push(msg);
@@ -505,7 +505,7 @@ TEST(partition_test_t, range_based_for_loop_works_with_iterator) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               size_t INDEX = 0;
               for (const auto& msg : partition) {
@@ -540,7 +540,7 @@ TEST(partition_test_t, large_number_of_messages) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               for (size_t i = 0; i < MESSAGE_COUNT; ++i) {
                 std::string msg = std::string(BASE_MESSAGE) + std::to_string(i);
@@ -558,7 +558,7 @@ TEST(partition_test_t, large_number_of_messages) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               size_t COUNT = 0;
               for ([[maybe_unused]] const auto& msg : partition) {
@@ -579,7 +579,7 @@ TEST(partition_test_t, empty_partition_iterators_are_equal) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               EXPECT_EQ(partition.begin(), partition.end());
               co_return;
@@ -592,7 +592,7 @@ TEST(partition_test_t, empty_partition_iterators_are_equal) {
     boost::asio::io_context io_ctx2;
     boost::asio::co_spawn(
             io_ctx2,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               EXPECT_EQ(partition.cbegin(), partition.cend());
               co_return;
@@ -633,7 +633,7 @@ TEST(partition_concurrent_test, write_lock_exclusive_access) {
   uint32_t real{0};
   std::atomic<uint32_t> counter{0};
 
-  auto coro = [&]() -> common::fibers::task_t<void> {
+  auto coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         ++counter;
@@ -656,7 +656,7 @@ TEST(partition_concurrent_test, write_lock_exclusive_access) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               EXPECT_EQ(real, counter.load());
               EXPECT_EQ(partition.size(), real);
@@ -673,7 +673,7 @@ TEST(partition_concurrent_test, read_lock_concurrent_access) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.write_lock();
               for (uint64_t i = 0; i < TEST_COUNT; ++i) {
                 partition.push("test");
@@ -686,7 +686,7 @@ TEST(partition_concurrent_test, read_lock_concurrent_access) {
 
   std::atomic<uint64_t> read_count{0};
 
-  auto read_coro = [&]() -> common::fibers::task_t<void> {
+  auto read_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await partition.read_lock();
@@ -713,7 +713,7 @@ TEST(partition_concurrent_test, mixed_lock_operations) {
   uint32_t real{0};
   std::atomic<uint32_t> counter{0};
 
-  auto write_coro = [&]() -> common::fibers::task_t<void> {
+  auto write_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await partition.write_lock();
@@ -725,7 +725,7 @@ TEST(partition_concurrent_test, mixed_lock_operations) {
     }
   };
 
-  auto read_coro = [&]() -> common::fibers::task_t<void> {
+  auto read_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await partition.read_lock();
@@ -748,7 +748,7 @@ TEST(partition_concurrent_test, mixed_lock_operations) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               EXPECT_EQ(real, counter.load());
               EXPECT_EQ(partition.size(), real);
@@ -767,7 +767,7 @@ TEST(partition_concurrent_test, concurrent_push_and_read) {
 
   constexpr uint64_t SMALL_TEST_COUNT = 1000;
 
-  auto push_coro = [&]() -> common::fibers::task_t<void> {
+  auto push_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < SMALL_TEST_COUNT; ++i) {
         auto lock = co_await partition.write_lock();
@@ -778,7 +778,7 @@ TEST(partition_concurrent_test, concurrent_push_and_read) {
     }
   };
 
-  auto read_coro = [&]() -> common::fibers::task_t<void> {
+  auto read_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < SMALL_TEST_COUNT; ++i) {
         auto lock = co_await partition.read_lock();
@@ -804,7 +804,7 @@ TEST(partition_concurrent_test, concurrent_push_and_read) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               EXPECT_EQ(push_count.load(), 2 * SMALL_TEST_COUNT);
               EXPECT_EQ(partition.size(), 2 * SMALL_TEST_COUNT);
@@ -821,7 +821,7 @@ TEST(partition_concurrent_test, concurrent_push_pop) {
   std::atomic<uint32_t> push_count{0};
   std::atomic<uint32_t> pop_count{0};
 
-  auto push_coro = [&]() -> common::fibers::task_t<void> {
+  auto push_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await partition.write_lock();
@@ -832,7 +832,7 @@ TEST(partition_concurrent_test, concurrent_push_pop) {
     }
   };
 
-  auto pop_coro = [&]() -> common::fibers::task_t<void> {
+  auto pop_coro = [&]() -> fibers::task_t<void> {
     {
       for (uint64_t i = 0; i < TEST_COUNT; ++i) {
         auto lock = co_await partition.write_lock();
@@ -858,7 +858,7 @@ TEST(partition_concurrent_test, concurrent_push_pop) {
     boost::asio::io_context io_ctx;
     boost::asio::co_spawn(
             io_ctx,
-            [&]() -> common::fibers::task_t<void> {
+            [&]() -> fibers::task_t<void> {
               auto lock = co_await partition.read_lock();
               EXPECT_EQ(push_count.load(), 2 * TEST_COUNT);
               EXPECT_EQ(partition.size() + pop_count.load(), 2 * TEST_COUNT);
