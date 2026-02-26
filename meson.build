@@ -78,6 +78,7 @@ noctua_test = executable(
     'test/sync-primitives-tests.cpp',
     'test/partition-test.cpp',
     'test/wall-test.cpp',
+    'test/topic-test.cpp',
   ),
   dependencies: [
       fmt_lib,
