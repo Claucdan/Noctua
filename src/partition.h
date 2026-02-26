@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/messages/message-queue.h"
+#include "messages/message-queue.h"
 
 #include "common/fibers/sync-primitives/shared-mutex.h"
 

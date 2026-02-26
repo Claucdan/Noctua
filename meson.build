@@ -52,7 +52,6 @@ boost_lib = dependency(
   'boost',
   modules : [
     'asio',
-    'cobalt',
     'system',
     'thread',
   ],
@@ -78,6 +77,7 @@ noctua_test = executable(
     'test/message-queue-test.cpp',
     'test/sync-primitives-tests.cpp',
     'test/partition-test.cpp',
+    'test/wall-test.cpp',
   ),
   dependencies: [
       fmt_lib,
