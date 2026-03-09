@@ -72,7 +72,7 @@ public:
 
 private:
   uint64_t next_     : 47 {0};
-  uint16_t data_len_ : 15 {0};
+  uint16_t data_len_ : 16 {0};
   char data_[];
 };
 

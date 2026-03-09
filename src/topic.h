@@ -85,15 +85,7 @@ public:
 
   fibers::task_t<bool> remove(const common::request_t& request) {
     uint16_t partition_idx = request.partition_id();
-
-    if (partition_idx == common::INVALID_TOPIC_ID) {
-      partition_idx = hash_func_(request) % storage_.size();
-    }
-
-    wall::wall_data_t wall_data;
-    wall_data.identifier = partition_idx;
-    wall_data.is_push_operation = false;
-    wall_data.message = request.message_view();
+    kassert_ne(partition_idx, common::INVALID_TOPIC_ID);
 
     {
       auto lock = co_await storage_[partition_idx]->read_lock();
@@ -103,7 +95,12 @@ public:
       }
     }
 
-    auto lock = co_await storage_[partition_idx]->read_lock();
+    wall::wall_data_t wall_data;
+    wall_data.identifier = partition_idx;
+    wall_data.is_push_operation = false;
+    wall_data.message = request.message_view();
+
+    auto lock = co_await storage_[partition_idx]->write_lock();
     auto message_it = storage_[partition_idx]->front();
     if (message_it->get_data() != request.message_view()) {
       co_return false;
@@ -115,8 +112,9 @@ public:
   }
 
 private:
+  [[no_unique_address]] HashFunc hash_func_;
+
   wall::wall_writer_t wall_write_;
-  HashFunc hash_func_;
   std::string_view topic_name_;
   std::uint64_t offset_id_{0};
   std::vector<std::unique_ptr<partition_t>> storage_;

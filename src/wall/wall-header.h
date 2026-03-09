@@ -18,8 +18,8 @@ struct wall_header_t {
     co_await writer.store(&offset_id, sizeof(offset_id));
     uint64_t topic_name_size = topic_name.size();
     co_await writer.store(&topic_name_size, sizeof(topic_name_size));
-    co_await writer.store(std::span<const std::byte>(
-        reinterpret_cast<const std::byte*>(topic_name.data()), topic_name.size()));
+    co_await writer.store(
+            std::span<const std::byte>(reinterpret_cast<const std::byte*>(topic_name.data()), topic_name.size()));
     co_await writer.store(&data_count, sizeof(data_count));
   }
 
@@ -38,8 +38,8 @@ struct wall_data_t {
     co_await writer.store(&is_push_operation, sizeof(is_push_operation));
     uint64_t message_size = message.size();
     co_await writer.store(&message_size, sizeof(message_size));
-    co_await writer.store(std::span<const std::byte>(
-        reinterpret_cast<const std::byte*>(message.data()), message.size()));
+    co_await writer.store(
+            std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()));
   }
 
   uint16_t identifier;
