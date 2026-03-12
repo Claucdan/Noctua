@@ -31,11 +31,11 @@ protected:
 };
 
 TEST_F(topic_test_t, constructor_creates_topic_with_partitions) {
-  topic_t<test_hash_t> topic{3, "/tmp/test_topic.wall", "test-topic"};
+  topic_t<test_hash_t> topic{3, "test-topic"};
 }
 
 TEST_F(topic_test_t, push_with_valid_partition_id_puts_in_correct_partition) {
-  topic_t<test_hash_t> topic{3, "/tmp/test_topic.wall", "test-topic"};
+  topic_t<test_hash_t> topic{3, "test-topic"};
 
   std::array<std::byte, 1024> request_buffer;
   uint16_t topic_name_len = 9;
@@ -62,7 +62,7 @@ TEST_F(topic_test_t, push_with_valid_partition_id_puts_in_correct_partition) {
 }
 
 TEST_F(topic_test_t, push_with_invalid_partition_id_uses_hash) {
-  topic_t<test_hash_t> topic{3, "/tmp/test_topic.wall", "test-topic"};
+  topic_t<test_hash_t> topic{3, "test-topic"};
 
   std::array<std::byte, 1024> request_buffer;
   uint16_t topic_name_len = 9;
@@ -89,7 +89,7 @@ TEST_F(topic_test_t, push_with_invalid_partition_id_uses_hash) {
 }
 
 TEST_F(topic_test_t, push_multiple_messages_goes_to_correct_partitions) {
-  topic_t<test_hash_t> topic{3, "/tmp/test_topic.wall", "test-topic"};
+  topic_t<test_hash_t> topic{3, "test-topic"};
 
   {
     std::array<std::byte, 1024> request_buffer;

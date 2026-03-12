@@ -58,26 +58,12 @@ boost_lib = dependency(
   required : true
 )
 
-noctua = executable(
-  'server',
-  files(
-    'tcp_example.cpp',
-  ),
-  dependencies: [
-      fmt_lib,
-      boost_lib,
-      thread_dep,
-  ],
-  include_directories: include_dirs,
-)
-
 noctua_test = executable(
   'noctua-test',
   files(
     'test/message-queue-test.cpp',
     'test/sync-primitives-tests.cpp',
     'test/partition-test.cpp',
-    'test/wall-test.cpp',
     'test/topic-test.cpp',
   ),
   dependencies: [

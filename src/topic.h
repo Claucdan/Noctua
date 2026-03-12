@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -29,11 +30,8 @@ public:
   topic_t(const topic_t&) = delete;
   topic_t(topic_t&&) = delete;
 
-  explicit topic_t(size_t partitions_count,
-                   std::string_view wall_path,
-                   std::string_view topic_name,
-                   HashFunc hash_func = HashFunc{})
-      : wall_write_(wall_path), hash_func_(std::move(hash_func)), topic_name_(topic_name) {
+  explicit topic_t(size_t partitions_count, std::string_view topic_name, HashFunc hash_func = HashFunc{})
+      : wall_write_(topic_name), hash_func_(std::move(hash_func)) {
     kassert_lt(partitions_count, common::INVALID_TOPIC_ID);
     storage_.reserve(partitions_count);
     for (size_t i = 0; i < partitions_count; ++i) {
@@ -67,7 +65,10 @@ public:
     wall_data.message = request.message_view();
 
     auto lock = co_await storage_[partition_idx]->write_lock();
-    co_await wall_data.store(wall_write_);
+    {
+      auto wall_lock = co_await wall_mutex_.lock();
+      wall_write_.store(&wall_data, sizeof(wall_data));
+    }
     storage_[partition_idx]->push(request.message_view());
     co_return;
   }
@@ -105,7 +106,10 @@ public:
     if (message_it->get_data() != request.message_view()) {
       co_return false;
     }
-    co_await wall_data.store(wall_write_);
+    {
+      auto wall_lock = co_await wall_mutex_.lock();
+      wall_write_.store(&wall_data, sizeof(wall_data));
+    }
     storage_[partition_idx]->pop();
 
     co_return;
@@ -114,11 +118,11 @@ public:
 private:
   [[no_unique_address]] HashFunc hash_func_;
 
-  wall::wall_writer_t wall_write_;
-  std::string_view topic_name_;
   std::uint64_t offset_id_{0};
+  wall::wall_writer_t wall_write_;
   std::vector<std::unique_ptr<partition_t>> storage_;
   mutable fibers::shared_mutex_t mutex_;
+  mutable fibers::unique_mutex_t wall_mutex_;
 };
 
 } // namespace noctua
