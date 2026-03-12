@@ -69,6 +69,17 @@ noctua_server = executable(
   include_directories: include_dirs,
 )
 
+noctua_client = executable(
+  'noctua-client',
+  files('src/rpc-client.cpp'),
+  dependencies: [
+      fmt_lib,
+      boost_lib,
+      thread_dep,
+  ],
+  include_directories: include_dirs,
+)
+
 noctua_test = executable(
   'noctua-test',
   files(
