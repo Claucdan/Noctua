@@ -31,7 +31,7 @@ public:
   topic_t(topic_t&&) = delete;
 
   explicit topic_t(size_t partitions_count, std::string_view topic_name, HashFunc hash_func = HashFunc{})
-      : wall_write_(topic_name), hash_func_(std::move(hash_func)) {
+      : hash_func_(std::move(hash_func)), wall_write_(topic_name) {
     kassert_lt(partitions_count, common::INVALID_TOPIC_ID);
     storage_.reserve(partitions_count);
     for (size_t i = 0; i < partitions_count; ++i) {
@@ -112,7 +112,7 @@ public:
     }
     storage_[partition_idx]->pop();
 
-    co_return;
+    co_return true;
   }
 
 private:
