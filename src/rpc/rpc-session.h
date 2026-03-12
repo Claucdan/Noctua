@@ -5,6 +5,7 @@
 #include "common/fibers/task.h"
 #include "common/kassert.h"
 #include "common/constants.h"
+#include "common/fibers/sync-primitives/unique-mutex.h"
 
 #include "topic.h"
 
@@ -17,7 +18,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -42,7 +42,7 @@ public:
   topic_type_t* get_or_create_topic(std::string_view topic_name, size_t partitions_count = 1) {
     std::string key{topic_name};
 
-    std::unique_lock<std::mutex> lock(mutex_);
+    auto lock = mutex_.lock();
     auto it = topics_.find(key);
     if (it == topics_.end()) {
       auto [new_it, _] = topics_.emplace(std::move(key), std::make_unique<topic_type_t>(partitions_count, topic_name));
@@ -54,7 +54,7 @@ public:
   topic_type_t* get_topic(std::string_view topic_name) {
     std::string key{topic_name};
 
-    std::unique_lock<std::mutex> lock(mutex_);
+    auto lock = mutex_.lock();
     auto it = topics_.find(key);
     if (it == topics_.end()) {
       return nullptr;
@@ -63,7 +63,7 @@ public:
   }
 
 private:
-  std::mutex mutex_;
+  fibers::unique_mutex_t mutex_;
   std::unordered_map<std::string, std::unique_ptr<topic_type_t>> topics_;
 };
 
