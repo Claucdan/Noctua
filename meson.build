@@ -12,7 +12,7 @@ project(
   meson_version: '>=1.1.0',
 )
 
-include_dirs = include_directories('.')
+include_dirs = include_directories('src')
 
 thread_dep = dependency('threads')
 
@@ -31,6 +31,7 @@ gtest_opts.set_install(false)
 gtest_subproject = cmake.subproject('googletest', options: gtest_opts)
 gtest_lib = gtest_subproject.dependency('gtest', include_type : 'system')
 gmock_lib = gtest_subproject.dependency('gmock', include_type : 'system')
+gtest_main_lib = gtest_subproject.dependency('gtest_main', include_type : 'system')
 
 gbenchmark_opts = cmake.subproject_options()
 gbenchmark_defs = default_defs + {'BENCHMARK_ENABLE_GTEST_TESTS' : false} + {'BENCHMARK_ENABLE_TESTING' : false}
@@ -51,9 +52,33 @@ boost_lib = dependency(
   'boost',
   modules : [
     'asio',
-    'cobalt',
     'system',
     'thread',
   ],
   required : true
+)
+
+noctua_test = executable(
+  'noctua-test',
+  files(
+    'test/message-queue-test.cpp',
+    'test/sync-primitives-tests.cpp',
+    'test/partition-test.cpp',
+    'test/topic-test.cpp',
+  ),
+  dependencies: [
+      fmt_lib,
+      boost_lib,
+      thread_dep,
+      gtest_lib,
+      gtest_main_lib,
+  ],
+  include_directories: include_dirs,
+)
+
+test(
+  'noctua_tests',
+  noctua_test,
+  protocol: 'gtest',
+  timeout: 120
 )
