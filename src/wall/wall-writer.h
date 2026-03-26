@@ -20,7 +20,7 @@ public:
 
   explicit wall_writer_t(std::string_view file_path)
       : file_(std::string("/tmp/").append(file_path), std::ios::binary | std::ios::out) {
-    kassert(file_.is_open(), "file should be open: [{}]", file_path);
+    kassert(file_.is_open(), "file should be open: [/tmp/{}]", file_path);
   }
 
   wall_writer_t& operator=(const wall_writer_t&) = delete;
