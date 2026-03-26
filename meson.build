@@ -104,3 +104,6 @@ test(
   protocol: 'gtest',
   timeout: 120
 )
+
+# Benchmark GUI subproject
+subdir('benchmark-gui')
