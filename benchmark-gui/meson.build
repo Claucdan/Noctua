@@ -1,5 +1,6 @@
 qt6 = import('qt6')
 qt6_dep = dependency('qt6', modules: ['Core', 'Widgets', 'Network'], required: true)
+qt6_test_dep = dependency('qt6', modules: ['Core', 'Network', 'Test'], required: true)
 
 include_dirs = include_directories('../src')
 
@@ -31,10 +32,14 @@ executable('noctua-benchmark',
     install: true
 )
 
+test_moc_sources = qt6.preprocess(
+    moc_headers: files('test/benchmark-gui-qt-test.h')
+)
+
 benchmark_gui_test = executable(
     'noctua-benchmark-test',
     files(
-        'test/protocolutils-test.cpp',
+        'test/benchmark-gui-qt-test.cpp',
         'src/worker.cpp',
         'src/writerworker.cpp',
         'src/readerworker.cpp',
@@ -42,9 +47,9 @@ benchmark_gui_test = executable(
         'src/protocolutils.cpp',
     ),
     moc_sources,
+    test_moc_sources,
     dependencies: [
-        qt6_dep,
-        gtest_lib,
+        qt6_test_dep,
         boost_lib,
         thread_dep,
         fmt_lib,
@@ -58,6 +63,5 @@ benchmark_gui_test = executable(
 test(
     'noctua_benchmark_tests',
     benchmark_gui_test,
-    protocol: 'gtest',
     timeout: 120,
 )
