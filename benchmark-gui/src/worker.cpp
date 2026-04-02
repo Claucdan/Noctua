@@ -3,8 +3,6 @@
 
 #include "rpc/rpc-protocol.h"
 
-#include <QDebug>
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -91,12 +89,6 @@ Worker::Stats Worker::getStats() const {
 }
 
 void Worker::connectToHost() {
-    qInfo().nospace()
-        << "[BENCH][Worker " << this << "] Connecting to "
-        << m_host << ":" << m_port
-        << " topic=" << m_topicName
-        << " partition=" << m_partitionId
-        << " qps=" << m_qps;
     m_socket->connectToHost(m_host, m_port);
 }
 
@@ -146,18 +138,7 @@ void Worker::sendRequest(const QByteArray& data) {
         if (bytesQueued == data.size()) {
             QMutexLocker locker(&m_pendingMutex);
             m_pendingSendTimes.push_back(sendTime);
-            qInfo().nospace()
-                << "[BENCH][Worker " << this << "] Sent request bytes=" << data.size()
-                << " pending=" << m_pendingSendTimes.size();
-        } else {
-            qWarning().nospace()
-                << "[BENCH][Worker " << this << "] Partial write queued="
-                << bytesQueued << " expected=" << data.size();
         }
-    } else {
-        qWarning().nospace()
-            << "[BENCH][Worker " << this << "] Skip send, socket state="
-            << m_socket->state();
     }
 }
 
@@ -182,14 +163,6 @@ void Worker::processResponse(const QByteArray& data) {
         response.valid &&
         response.errorCode == noctua::rpc::error_code_t::OK &&
         response.opcode != noctua::rpc::opcode_t::ERROR;
-
-    qInfo().nospace()
-        << "[BENCH][Worker " << this << "] Response valid=" << response.valid
-        << " opcode=" << static_cast<int>(response.opcode)
-        << " error=" << static_cast<int>(response.errorCode)
-        << " payload=" << response.message.size()
-        << " latency_us=" << latencyMicros
-        << " success=" << success;
     updateStats(latencyMicros, success);
 }
 
@@ -201,17 +174,12 @@ void Worker::reconnect() {
 }
 
 void Worker::onConnected() {
-    qInfo().nospace()
-        << "[BENCH][Worker " << this << "] Connected";
-    // Start sending requests
     if (m_running.load() && !m_paused.load()) {
         m_requestTimer->start();
     }
 }
 
 void Worker::onDisconnected() {
-    qWarning().nospace()
-        << "[BENCH][Worker " << this << "] Disconnected";
     m_requestTimer->stop();
     recordFailedPendingRequests();
     if (m_running.load()) {
@@ -220,30 +188,18 @@ void Worker::onDisconnected() {
 }
 
 void Worker::onErrorOccurred(QAbstractSocket::SocketError socketError) {
-    qWarning().nospace()
-        << "[BENCH][Worker " << this << "] Socket error="
-        << socketError << " message=" << m_socket->errorString();
+    Q_UNUSED(socketError);
     emit errorOccurred(m_socket->errorString());
     recordFailedPendingRequests();
 }
 
 void Worker::onReadyRead() {
     m_buffer.append(m_socket->readAll());
-    qInfo().nospace()
-        << "[BENCH][Worker " << this << "] Read bytes, buffer_size=" << m_buffer.size();
 
     while (m_buffer.size() >= static_cast<int>(sizeof(noctua::rpc::response_header_t))) {
         noctua::rpc::response_header_t header{};
         std::memcpy(&header, m_buffer.constData(), sizeof(header));
         const size_t totalLen = sizeof(header) + static_cast<size_t>(header.message_len);
-
-        qInfo().nospace()
-            << "[BENCH][Worker " << this << "] Parsed header magic=0x"
-            << Qt::hex << header.magic << Qt::dec
-            << " opcode=" << static_cast<int>(header.opcode)
-            << " error=" << static_cast<int>(header.error_code)
-            << " message_len=" << header.message_len
-            << " frame_len=" << totalLen;
 
         if (m_buffer.size() >= static_cast<int>(totalLen)) {
             QByteArray response = m_buffer.left(static_cast<int>(totalLen));
@@ -269,11 +225,6 @@ void Worker::recordFailedPendingRequests() {
         m_pendingSendTimes.clear();
     }
 
-    if (failedCount > 0) {
-        qWarning().nospace()
-            << "[BENCH][Worker " << this << "] Marking failed pending requests count="
-            << failedCount;
-    }
     for (size_t i = 0; i < failedCount; ++i) {
         updateStats(0, false);
     }

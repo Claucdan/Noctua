@@ -79,7 +79,6 @@ public:
 
   fibers::task_t<void> start() {
     try {
-      fmt::println("[SESSION][{}] Session started", fmt::ptr(this));
       co_await handle_requests();
     } catch (const boost::system::system_error& e) {
       fmt::println(stderr, "[SESSION][{}] Connection error: {}", fmt::ptr(this), e.what());
@@ -97,7 +96,6 @@ private:
     while (true) {
       request_header_t request_header;
 
-      fmt::println("[SESSION][{}] Waiting for request header ({} bytes)", fmt::ptr(this), sizeof(request_header));
       auto bytes_read = co_await boost::asio::async_read(
           socket_,
           boost::asio::buffer(&request_header, sizeof(request_header)),
@@ -108,25 +106,12 @@ private:
       }
 
       if (request_header.magic != RPC_MAGIC) {
-        fmt::println(
-            stderr,
-            "[SESSION][{}] Invalid magic number in request header: got=0x{:08X} expected=0x{:08X}",
-            fmt::ptr(this),
-            request_header.magic,
-            RPC_MAGIC);
+        fmt::println(stderr, "[SESSION][{}] Invalid magic number in request header", fmt::ptr(this));
         co_await send_error_response(opcode_t::PUSH, error_code_t::INTERNAL_ERROR, "Invalid magic number");
         break;
       }
 
       size_t total_data_len = request_header.topic_name_len + request_header.message_len;
-      fmt::println(
-          "[SESSION][{}] Header received: opcode={}, topic_len={}, partition_id={}, message_len={}, payload_len={}",
-          fmt::ptr(this),
-          opcode_to_string(request_header.opcode),
-          request_header.topic_name_len,
-          request_header.partition_id,
-          request_header.message_len,
-          total_data_len);
       if (total_data_len > buffer.size() - sizeof(request_header)) {
         fmt::println(stderr, "[SESSION][{}] Request data too large", fmt::ptr(this));
         co_await send_error_response(request_header.opcode, error_code_t::INTERNAL_ERROR, "Data too large");
@@ -151,13 +136,6 @@ private:
           reinterpret_cast<const char*>(buffer.data() + request_header.topic_name_len),
           request_header.message_len};
 
-      fmt::println(
-          "[SESSION][{}] Dispatching request: opcode={}, topic='{}', partition_id={}, message_len={}",
-          fmt::ptr(this),
-          opcode_to_string(request_header.opcode),
-          topic_name,
-          request_header.partition_id,
-          message.size());
       co_await handle_request(request_header, topic_name, message);
     }
 
@@ -189,24 +167,22 @@ private:
       const request_header_t& header,
       std::string_view topic_name,
       std::string_view message) {
+    static constexpr size_t DEFAULT_TOPIC_PARTITIONS = 3;
 
     if (topic_name.empty()) {
       co_await send_error_response(opcode_t::PUSH, error_code_t::INVALID_TOPIC_NAME, "Empty topic name");
       co_return;
     }
 
-    auto* topic = registry_.get_or_create_topic(topic_name);
+    auto* topic = registry_.get_or_create_topic(topic_name, DEFAULT_TOPIC_PARTITIONS);
+    if (header.partition_id != common::INVALID_TOPIC_ID &&
+        header.partition_id >= topic->partitions_count()) {
+      co_await send_error_response(opcode_t::PUSH, error_code_t::PARTITION_NOT_FOUND, "Invalid partition ID");
+      co_return;
+    }
 
     std::vector<std::byte> request_buffer(required_request_buffer_size(topic_name, message));
     auto* request = create_request(request_buffer, topic_name, header.partition_id, message);
-
-    fmt::println(
-        "[SESSION][{}] PUSH prepared: topic='{}', partition_id={}, request_buffer_size={}, message_len={}",
-        fmt::ptr(this),
-        topic_name,
-        header.partition_id,
-        request_buffer.size(),
-        message.size());
     co_await topic->push(*request);
 
     co_await send_ok_response(opcode_t::PUSH);
@@ -232,13 +208,7 @@ private:
       co_return;
     }
 
-    if (header.partition_id >= 3) {
-      fmt::println(
-          stderr,
-          "[SESSION][{}] PULL invalid partition_id={} for topic='{}'",
-          fmt::ptr(this),
-          header.partition_id,
-          topic_name);
+    if (header.partition_id >= topic->partitions_count()) {
       co_await send_error_response(opcode_t::PULL, error_code_t::PARTITION_NOT_FOUND, "Invalid partition ID");
       co_return;
     }
@@ -273,16 +243,13 @@ private:
       co_return;
     }
 
+    if (header.partition_id >= topic->partitions_count()) {
+      co_await send_error_response(opcode_t::DELETE, error_code_t::PARTITION_NOT_FOUND, "Invalid partition ID");
+      co_return;
+    }
+
     std::vector<std::byte> request_buffer(required_request_buffer_size(topic_name, message));
     auto* request = create_request(request_buffer, topic_name, header.partition_id, message);
-
-    fmt::println(
-        "[SESSION][{}] DELETE prepared: topic='{}', partition_id={}, request_buffer_size={}, message_len={}",
-        fmt::ptr(this),
-        topic_name,
-        header.partition_id,
-        request_buffer.size(),
-        message.size());
     co_await topic->remove(*request);
 
     co_await send_ok_response(opcode_t::DELETE);
@@ -292,12 +259,6 @@ private:
     response_header_t response{};
     response.opcode = opcode;
     response.error_code = error_code_t::OK;
-
-    fmt::println(
-        "[SESSION][{}] Sending OK response: opcode={}, message_len={}",
-        fmt::ptr(this),
-        opcode_to_string(opcode),
-        response.message_len);
     co_await boost::asio::async_write(
         socket_,
         boost::asio::buffer(&response, sizeof(response)),
@@ -313,12 +274,6 @@ private:
     std::array<boost::asio::const_buffer, 2> buffers{
         boost::asio::buffer(&response, sizeof(response)),
         boost::asio::buffer(data.data(), data.size())};
-
-    fmt::println(
-        "[SESSION][{}] Sending data response: opcode={}, message_len={}",
-        fmt::ptr(this),
-        opcode_to_string(opcode),
-        data.size());
     co_await boost::asio::async_write(socket_, buffers, boost::asio::use_awaitable);
   }
 
@@ -331,14 +286,6 @@ private:
     std::array<boost::asio::const_buffer, 2> buffers{
         boost::asio::buffer(&response, sizeof(response)),
         boost::asio::buffer(error_message.data(), error_message.size())};
-
-    fmt::println(
-        stderr,
-        "[SESSION][{}] Sending error response: opcode={}, error_code={}, message='{}'",
-        fmt::ptr(this),
-        opcode_to_string(opcode),
-        error_code_to_string(error_code),
-        error_message);
     co_await boost::asio::async_write(socket_, buffers, boost::asio::use_awaitable);
   }
 

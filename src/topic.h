@@ -52,6 +52,10 @@ public:
     co_return co_await mutex_.lock();
   }
 
+  [[nodiscard]] size_t partitions_count() const noexcept {
+    return storage_.size();
+  }
+
   fibers::task_t<void> push(const common::request_t& request) {
     uint16_t partition_idx = request.partition_id();
 

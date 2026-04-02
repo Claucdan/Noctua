@@ -122,9 +122,10 @@ void BenchmarkRunner::createWorkers() {
 
     for (int i = 0; i < m_config.numWriters; ++i) {
         auto* thread = new QThread(this);
+        const auto partitionId = partitionForWorker(i);
         auto* worker = new WriterWorker(
             m_config.host, m_config.port,
-            m_config.topicName, m_config.partitionId,
+            m_config.topicName, partitionId,
             m_config.writerQps, m_config.messageSize);
 
         connect(worker, &Worker::statsUpdated,
@@ -152,9 +153,10 @@ void BenchmarkRunner::createWorkers() {
 
     for (int i = 0; i < m_config.numReaders; ++i) {
         auto* thread = new QThread(this);
+        const auto partitionId = partitionForWorker(i);
         auto* worker = new ReaderWorker(
             m_config.host, m_config.port,
-            m_config.topicName, m_config.partitionId,
+            m_config.topicName, partitionId,
             m_config.readerQps);
 
         connect(worker, &Worker::statsUpdated,
@@ -294,4 +296,10 @@ double BenchmarkRunner::maxLatencyMs(const LatencyAccumulator& accumulator) {
         return 0.0;
     }
     return static_cast<double>(*std::max_element(accumulator.samples.begin(), accumulator.samples.end())) / 1000.0;
+}
+
+uint32_t BenchmarkRunner::partitionForWorker(int workerIndex) const noexcept {
+    const auto partitionCount = std::max<uint32_t>(1, m_config.partitionCount);
+    const auto offset = static_cast<uint32_t>(workerIndex % static_cast<int>(partitionCount));
+    return m_config.partitionId + offset;
 }

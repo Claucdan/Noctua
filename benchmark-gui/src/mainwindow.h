@@ -56,6 +56,7 @@ private:
     QSpinBox* m_portSpinBox;
     QLineEdit* m_topicEdit;
     QSpinBox* m_partitionSpinBox;
+    QSpinBox* m_partitionCountSpinBox;
 
     // Worker configuration
     QSpinBox* m_numWritersSpinBox;

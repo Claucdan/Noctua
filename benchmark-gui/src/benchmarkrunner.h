@@ -20,6 +20,7 @@ public:
         quint16 port = 8080;
         QString topicName = "test_topic";
         uint32_t partitionId = 0;
+        uint32_t partitionCount = 1;
         int numWriters = 1;
         int numReaders = 1;
         int writerQps = 100;
@@ -79,6 +80,11 @@ private:
         std::vector<uint64_t> samples;
     };
 
+public:
+    static constexpr uint32_t kSupportedPartitionCount = 3;
+
+private:
+
     void createWorkers();
     void destroyWorkers();
     [[nodiscard]] AggregatedStats buildAggregatedStatsLocked() const;
@@ -90,6 +96,7 @@ private:
     [[nodiscard]] static double averageLatencyMs(const LatencyAccumulator& accumulator);
     [[nodiscard]] static double minLatencyMs(const LatencyAccumulator& accumulator);
     [[nodiscard]] static double maxLatencyMs(const LatencyAccumulator& accumulator);
+    [[nodiscard]] uint32_t partitionForWorker(int workerIndex) const noexcept;
 
     Config m_config;
     std::atomic<bool> m_running{false};
