@@ -1,6 +1,4 @@
-#define private public
 #include "benchmarkrunner.h"
-#undef private
 
 #include "benchmark-gui-qt-test.h"
 #include "protocolutils.h"

@@ -16,6 +16,8 @@
 class BenchmarkRunner : public QObject {
     Q_OBJECT
 
+    friend class BenchmarkGuiQtTest;
+
 public:
     struct Config {
         QString host = "localhost";
