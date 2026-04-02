@@ -1,7 +1,32 @@
 #include "benchmarkrunner.h"
 
+#include <QMetaObject>
+
 #include <algorithm>
 #include <limits>
+#include <utility>
+
+namespace {
+
+template <typename Fn>
+void invoke_on_worker_thread(Worker* worker, Fn&& fn, Qt::ConnectionType type) {
+    if (worker == nullptr) {
+        return;
+    }
+
+    auto* targetThread = worker->thread();
+    if (targetThread == nullptr || targetThread == QThread::currentThread() || !targetThread->isRunning()) {
+        fn();
+        return;
+    }
+
+    QMetaObject::invokeMethod(
+        worker,
+        std::forward<Fn>(fn),
+        type);
+}
+
+} // namespace
 
 BenchmarkRunner::BenchmarkRunner(QObject* parent)
     : QObject(parent)
@@ -65,10 +90,10 @@ void BenchmarkRunner::pause() {
     m_paused.store(true);
 
     for (auto* writer : m_writers) {
-        writer->pause();
+        invoke_on_worker_thread(writer, [writer]() { writer->pause(); }, Qt::QueuedConnection);
     }
     for (auto* reader : m_readers) {
-        reader->pause();
+        invoke_on_worker_thread(reader, [reader]() { reader->pause(); }, Qt::QueuedConnection);
     }
 }
 
@@ -80,10 +105,10 @@ void BenchmarkRunner::resume() {
     m_paused.store(false);
 
     for (auto* writer : m_writers) {
-        writer->resume();
+        invoke_on_worker_thread(writer, [writer]() { writer->resume(); }, Qt::QueuedConnection);
     }
     for (auto* reader : m_readers) {
-        reader->resume();
+        invoke_on_worker_thread(reader, [reader]() { reader->resume(); }, Qt::QueuedConnection);
     }
 }
 
@@ -180,15 +205,13 @@ void BenchmarkRunner::createWorkers() {
 }
 
 void BenchmarkRunner::destroyWorkers() {
-    // Stop all workers
     for (auto* worker : m_writers) {
-        worker->stop();
+        invoke_on_worker_thread(worker, [worker]() { worker->stop(); }, Qt::BlockingQueuedConnection);
     }
     for (auto* worker : m_readers) {
-        worker->stop();
+        invoke_on_worker_thread(worker, [worker]() { worker->stop(); }, Qt::BlockingQueuedConnection);
     }
 
-    // Wait for threads to finish
     for (auto* thread : m_writerThreads) {
         thread->quit();
         thread->wait(1000);
