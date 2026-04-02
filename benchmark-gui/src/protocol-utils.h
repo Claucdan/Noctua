@@ -4,21 +4,23 @@
 
 #include "rpc/rpc-protocol.h"
 
-class ProtocolUtils {
+class protocol_utils_t {
 public:
-  using Opcode = noctua::rpc::opcode_t;
-  using ErrorCode = noctua::rpc::error_code_t;
+  using opcode_t = noctua::rpc::opcode_t;
+  using error_code_t = noctua::rpc::error_code_t;
 
-  static QByteArray createPushRequest(const QByteArray& topicName, uint16_t partitionId, const QByteArray& message);
-  static QByteArray createPullRequest(const QByteArray& topicName, uint16_t partitionId);
-  static QByteArray createDeleteRequest(const QByteArray& topicName, uint16_t partitionId, const QByteArray& message);
+  static QByteArray create_push_request(const QByteArray& topic_name, uint16_t partition_id, const QByteArray& message);
+  static QByteArray create_pull_request(const QByteArray& topic_name, uint16_t partition_id);
+  static QByteArray create_delete_request(const QByteArray& topic_name,
+                                          uint16_t partition_id,
+                                          const QByteArray& message);
 
-  struct Response {
+  struct response_t {
     bool valid = false;
-    Opcode opcode = Opcode::ERROR;
-    ErrorCode errorCode = ErrorCode::INTERNAL_ERROR;
+    opcode_t opcode = opcode_t::ERROR;
+    error_code_t error_code = error_code_t::INTERNAL_ERROR;
     QByteArray message;
   };
 
-  static Response parseResponse(const QByteArray& data);
+  static response_t parse_response(const QByteArray& data);
 };

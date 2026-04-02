@@ -2,20 +2,20 @@
 
 #include "worker.h"
 
-class ReaderWorker : public Worker {
+class reader_worker_t : public worker_t {
   Q_OBJECT
 
 public:
-  explicit ReaderWorker(const QString& host,
-                        quint16 port,
-                        const QString& topicName,
-                        uint32_t partitionId,
-                        int qps,
-                        QObject* parent = nullptr);
-  ~ReaderWorker() override = default;
+  explicit reader_worker_t(const QString& host,
+                           quint16 port,
+                           const QString& topic_name,
+                           uint32_t partition_id,
+                           int qps,
+                           QObject* parent = nullptr);
+  ~reader_worker_t() override = default;
 
 protected:
-  void performRequest() override;
-  void onConnected() override;
-  void onReadyRead() override;
+  void perform_request() override;
+  void on_connected() override;
+  void on_ready_read() override;
 };

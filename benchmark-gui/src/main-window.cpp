@@ -1,343 +1,331 @@
 #include "main-window.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QSpinBox>
 #include <QPushButton>
-#include <QTextEdit>
+#include <QSpinBox>
 #include <QTimer>
-#include <QMessageBox>
+#include <QVBoxLayout>
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), m_runner(std::make_unique<BenchmarkRunner>(this)), m_updateTimer(new QTimer(this)) {
-  setupUi();
+main_window_t::main_window_t(QWidget* parent)
+    : QMainWindow(parent), runner_(std::make_unique<benchmark_runner_t>(this)), update_timer_(new QTimer(this)) {
+  setup_ui();
 
-  // Connect runner signals
-  connect(m_runner.get(), &BenchmarkRunner::statsUpdated, this, &MainWindow::onStatsUpdated);
-  connect(m_runner.get(), &BenchmarkRunner::benchmarkStarted, this, &MainWindow::onBenchmarkStarted);
-  connect(m_runner.get(), &BenchmarkRunner::benchmarkStopped, this, &MainWindow::onBenchmarkStopped);
-  connect(m_runner.get(), &BenchmarkRunner::errorOccurred, this, &MainWindow::onError);
+  connect(runner_.get(), &benchmark_runner_t::stats_updated, this, &main_window_t::on_stats_updated);
+  connect(runner_.get(), &benchmark_runner_t::benchmark_started, this, &main_window_t::on_benchmark_started);
+  connect(runner_.get(), &benchmark_runner_t::benchmark_stopped, this, &main_window_t::on_benchmark_stopped);
+  connect(runner_.get(), &benchmark_runner_t::error_occurred, this, &main_window_t::on_error);
 
-  // Update timer for elapsed time
-  connect(m_updateTimer, &QTimer::timeout, [this]() {
-    if (m_runner->isRunning()) {
-      auto stats = m_runner->getAggregatedStats();
-      m_durationLabel->setText(QString::number(stats.requestsPerSecond, 'f', 0) + " RPS");
+  connect(update_timer_, &QTimer::timeout, [this]() {
+    if (runner_->is_running()) {
+      const auto stats = runner_->get_aggregated_stats();
+      duration_label_->setText(QString::number(stats.requests_per_second, 'f', 0) + " RPS");
     }
   });
-  m_updateTimer->start(1000);
+  update_timer_->start(1000);
 
-  // Set initial button states
-  m_stopButton->setEnabled(false);
-  m_pauseButton->setEnabled(false);
-  m_resumeButton->setEnabled(false);
+  stop_button_->setEnabled(false);
+  pause_button_->setEnabled(false);
+  resume_button_->setEnabled(false);
 }
 
-MainWindow::~MainWindow() = default;
+main_window_t::~main_window_t() = default;
 
-void MainWindow::setupUi() {
-  auto* centralWidget = new QWidget(this);
-  auto* mainLayout = new QHBoxLayout(centralWidget);
+void main_window_t::setup_ui() {
+  auto* central_widget = new QWidget(this);
+  auto* main_layout = new QHBoxLayout(central_widget);
 
-  // Left panel: Configuration and controls
-  auto* leftPanel = new QWidget;
-  auto* leftLayout = new QVBoxLayout(leftPanel);
+  auto* left_panel = new QWidget;
+  auto* left_layout = new QVBoxLayout(left_panel);
 
-  createConnectionGroup();
-  createWorkerConfigGroup();
-  createControlButtons();
+  create_connection_group();
+  create_worker_config_group();
+  create_control_buttons();
 
-  leftLayout->addWidget(m_connectionGroup);
-  leftLayout->addWidget(m_workerConfigGroup);
-  leftLayout->addStretch();
-  leftLayout->addWidget(m_controlGroup);
+  left_layout->addWidget(connection_group_);
+  left_layout->addWidget(worker_config_group_);
+  left_layout->addStretch();
+  left_layout->addWidget(control_group_);
 
-  // Right panel: Statistics display
-  auto* rightPanel = new QWidget;
-  auto* rightLayout = new QVBoxLayout(rightPanel);
+  auto* right_panel = new QWidget;
+  auto* right_layout = new QVBoxLayout(right_panel);
 
-  createStatsDisplay();
+  create_stats_display();
 
-  rightLayout->addWidget(m_statusGroup);
-  rightLayout->addWidget(m_statsGroup);
-  rightLayout->addWidget(m_writerStatsGroup);
-  rightLayout->addWidget(m_readerStatsGroup);
-  rightLayout->addStretch();
+  right_layout->addWidget(status_group_);
+  right_layout->addWidget(stats_group_);
+  right_layout->addWidget(writer_stats_group_);
+  right_layout->addWidget(reader_stats_group_);
+  right_layout->addStretch();
 
-  mainLayout->addWidget(leftPanel, 1);
-  mainLayout->addWidget(rightPanel, 1);
+  main_layout->addWidget(left_panel, 1);
+  main_layout->addWidget(right_panel, 1);
 
-  setCentralWidget(centralWidget);
+  setCentralWidget(central_widget);
   setWindowTitle("Noctua Benchmark Tool");
   resize(1000, 700);
 }
 
-void MainWindow::createConnectionGroup() {
-  m_connectionGroup = new QGroupBox("Connection Settings");
+void main_window_t::create_connection_group() {
+  connection_group_ = new QGroupBox("Connection Settings");
   auto* layout = new QFormLayout;
 
-  m_hostEdit = new QLineEdit("localhost");
-  m_portSpinBox = new QSpinBox;
-  m_portSpinBox->setRange(1, 65535);
-  m_portSpinBox->setValue(8080);
+  host_edit_ = new QLineEdit("localhost");
+  port_spin_box_ = new QSpinBox;
+  port_spin_box_->setRange(1, 65535);
+  port_spin_box_->setValue(8080);
 
-  m_topicEdit = new QLineEdit("test_topic");
-  m_partitionCountSpinBox = new QSpinBox;
-  m_partitionCountSpinBox->setRange(1, static_cast<int>(BenchmarkRunner::kMaxPartitionCount));
-  m_partitionCountSpinBox->setValue(1);
+  topic_edit_ = new QLineEdit("test_topic");
+  partition_count_spin_box_ = new QSpinBox;
+  partition_count_spin_box_->setRange(1, static_cast<int>(benchmark_runner_t::MAX_PARTITION_COUNT));
+  partition_count_spin_box_->setValue(1);
 
-  layout->addRow("Host:", m_hostEdit);
-  layout->addRow("Port:", m_portSpinBox);
-  layout->addRow("Topic:", m_topicEdit);
-  layout->addRow("Partition Count:", m_partitionCountSpinBox);
+  layout->addRow("Host:", host_edit_);
+  layout->addRow("Port:", port_spin_box_);
+  layout->addRow("Topic:", topic_edit_);
+  layout->addRow("Partition Count:", partition_count_spin_box_);
 
-  m_connectionGroup->setLayout(layout);
+  connection_group_->setLayout(layout);
 }
 
-void MainWindow::createWorkerConfigGroup() {
-  m_workerConfigGroup = new QGroupBox("Worker Configuration");
+void main_window_t::create_worker_config_group() {
+  worker_config_group_ = new QGroupBox("Worker Configuration");
   auto* layout = new QFormLayout;
 
-  m_numWritersSpinBox = new QSpinBox;
-  m_numWritersSpinBox->setRange(0, 100);
-  m_numWritersSpinBox->setValue(1);
+  num_writers_spin_box_ = new QSpinBox;
+  num_writers_spin_box_->setRange(0, 100);
+  num_writers_spin_box_->setValue(1);
 
-  m_numReadersSpinBox = new QSpinBox;
-  m_numReadersSpinBox->setRange(0, 100);
-  m_numReadersSpinBox->setValue(1);
+  num_readers_spin_box_ = new QSpinBox;
+  num_readers_spin_box_->setRange(0, 100);
+  num_readers_spin_box_->setValue(1);
 
-  m_writerQpsSpinBox = new QSpinBox;
-  m_writerQpsSpinBox->setRange(1, 10000);
-  m_writerQpsSpinBox->setValue(100);
+  writer_qps_spin_box_ = new QSpinBox;
+  writer_qps_spin_box_->setRange(1, 10000);
+  writer_qps_spin_box_->setValue(100);
 
-  m_readerQpsSpinBox = new QSpinBox;
-  m_readerQpsSpinBox->setRange(1, 10000);
-  m_readerQpsSpinBox->setValue(100);
+  reader_qps_spin_box_ = new QSpinBox;
+  reader_qps_spin_box_->setRange(1, 10000);
+  reader_qps_spin_box_->setValue(100);
 
-  m_messageSizeSpinBox = new QSpinBox;
-  m_messageSizeSpinBox->setRange(1, 1024 * 1024);
-  m_messageSizeSpinBox->setValue(1024);
-  m_messageSizeSpinBox->setSuffix(" bytes");
+  message_size_spin_box_ = new QSpinBox;
+  message_size_spin_box_->setRange(1, 1024 * 1024);
+  message_size_spin_box_->setValue(1024);
+  message_size_spin_box_->setSuffix(" bytes");
 
-  layout->addRow("Writer Threads:", m_numWritersSpinBox);
-  layout->addRow("Reader Threads:", m_numReadersSpinBox);
-  layout->addRow("Writer QPS:", m_writerQpsSpinBox);
-  layout->addRow("Reader QPS:", m_readerQpsSpinBox);
-  layout->addRow("Message Size:", m_messageSizeSpinBox);
+  layout->addRow("Writer Threads:", num_writers_spin_box_);
+  layout->addRow("Reader Threads:", num_readers_spin_box_);
+  layout->addRow("Writer QPS:", writer_qps_spin_box_);
+  layout->addRow("Reader QPS:", reader_qps_spin_box_);
+  layout->addRow("Message Size:", message_size_spin_box_);
 
-  m_workerConfigGroup->setLayout(layout);
+  worker_config_group_->setLayout(layout);
 }
 
-void MainWindow::createControlButtons() {
-  m_controlGroup = new QGroupBox("Controls");
+void main_window_t::create_control_buttons() {
+  control_group_ = new QGroupBox("Controls");
   auto* layout = new QHBoxLayout;
 
-  m_startButton = new QPushButton("Start");
-  m_startButton->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 8px; }");
-  m_stopButton = new QPushButton("Stop");
-  m_stopButton->setStyleSheet("QPushButton { background-color: #f44336; color: white; padding: 8px; }");
-  m_pauseButton = new QPushButton("Pause");
-  m_pauseButton->setStyleSheet("QPushButton { background-color: #FF9800; color: white; padding: 8px; }");
-  m_resumeButton = new QPushButton("Resume");
-  m_resumeButton->setStyleSheet("QPushButton { background-color: #2196F3; color: white; padding: 8px; }");
+  start_button_ = new QPushButton("Start");
+  start_button_->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 8px; }");
+  stop_button_ = new QPushButton("Stop");
+  stop_button_->setStyleSheet("QPushButton { background-color: #f44336; color: white; padding: 8px; }");
+  pause_button_ = new QPushButton("Pause");
+  pause_button_->setStyleSheet("QPushButton { background-color: #FF9800; color: white; padding: 8px; }");
+  resume_button_ = new QPushButton("Resume");
+  resume_button_->setStyleSheet("QPushButton { background-color: #2196F3; color: white; padding: 8px; }");
 
-  connect(m_startButton, &QPushButton::clicked, this, &MainWindow::onStartClicked);
-  connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::onStopClicked);
-  connect(m_pauseButton, &QPushButton::clicked, this, &MainWindow::onPauseClicked);
-  connect(m_resumeButton, &QPushButton::clicked, this, &MainWindow::onResumeClicked);
+  connect(start_button_, &QPushButton::clicked, this, &main_window_t::on_start_clicked);
+  connect(stop_button_, &QPushButton::clicked, this, &main_window_t::on_stop_clicked);
+  connect(pause_button_, &QPushButton::clicked, this, &main_window_t::on_pause_clicked);
+  connect(resume_button_, &QPushButton::clicked, this, &main_window_t::on_resume_clicked);
 
-  layout->addWidget(m_startButton);
-  layout->addWidget(m_pauseButton);
-  layout->addWidget(m_resumeButton);
-  layout->addWidget(m_stopButton);
+  layout->addWidget(start_button_);
+  layout->addWidget(pause_button_);
+  layout->addWidget(resume_button_);
+  layout->addWidget(stop_button_);
 
-  m_controlGroup->setLayout(layout);
+  control_group_->setLayout(layout);
 }
 
-void MainWindow::createStatsDisplay() {
-  // Status group
-  m_statusGroup = new QGroupBox("Status");
-  auto* statusLayout = new QFormLayout;
+void main_window_t::create_stats_display() {
+  status_group_ = new QGroupBox("Status");
+  auto* status_layout = new QFormLayout;
 
-  m_statusLabel = new QLabel("Stopped");
-  m_statusLabel->setStyleSheet("font-weight: bold; color: #666;");
-  m_durationLabel = new QLabel("0 RPS");
+  status_label_ = new QLabel("Stopped");
+  status_label_->setStyleSheet("font-weight: bold; color: #666;");
+  duration_label_ = new QLabel("0 RPS");
 
-  statusLayout->addRow("Status:", m_statusLabel);
-  statusLayout->addRow("Rate:", m_durationLabel);
+  status_layout->addRow("Status:", status_label_);
+  status_layout->addRow("Rate:", duration_label_);
 
-  m_statusGroup->setLayout(statusLayout);
+  status_group_->setLayout(status_layout);
 
-  // Overall stats group
-  m_statsGroup = new QGroupBox("Overall Statistics");
-  auto* statsLayout = new QFormLayout;
+  stats_group_ = new QGroupBox("Overall Statistics");
+  auto* stats_layout = new QFormLayout;
 
-  m_totalRequestsLabel = new QLabel("0");
-  m_successfulRequestsLabel = new QLabel("0");
-  m_failedRequestsLabel = new QLabel("0");
-  m_rpsLabel = new QLabel("0");
-  m_avgLatencyLabel = new QLabel("0 ms");
-  m_minLatencyLabel = new QLabel("0 ms");
-  m_maxLatencyLabel = new QLabel("0 ms");
-  m_p95LatencyLabel = new QLabel("0 ms");
-  m_p99LatencyLabel = new QLabel("0 ms");
+  total_requests_label_ = new QLabel("0");
+  successful_requests_label_ = new QLabel("0");
+  failed_requests_label_ = new QLabel("0");
+  rps_label_ = new QLabel("0");
+  avg_latency_label_ = new QLabel("0 ms");
+  min_latency_label_ = new QLabel("0 ms");
+  max_latency_label_ = new QLabel("0 ms");
+  p95_latency_label_ = new QLabel("0 ms");
+  p99_latency_label_ = new QLabel("0 ms");
 
-  statsLayout->addRow("Total Requests:", m_totalRequestsLabel);
-  statsLayout->addRow("Successful:", m_successfulRequestsLabel);
-  statsLayout->addRow("Failed:", m_failedRequestsLabel);
-  statsLayout->addRow("Avg Latency:", m_avgLatencyLabel);
-  statsLayout->addRow("Min Latency:", m_minLatencyLabel);
-  statsLayout->addRow("Max Latency:", m_maxLatencyLabel);
-  statsLayout->addRow("P95 Latency:", m_p95LatencyLabel);
-  statsLayout->addRow("P99 Latency:", m_p99LatencyLabel);
+  stats_layout->addRow("Total Requests:", total_requests_label_);
+  stats_layout->addRow("Successful:", successful_requests_label_);
+  stats_layout->addRow("Failed:", failed_requests_label_);
+  stats_layout->addRow("Avg Latency:", avg_latency_label_);
+  stats_layout->addRow("Min Latency:", min_latency_label_);
+  stats_layout->addRow("Max Latency:", max_latency_label_);
+  stats_layout->addRow("P95 Latency:", p95_latency_label_);
+  stats_layout->addRow("P99 Latency:", p99_latency_label_);
 
-  m_statsGroup->setLayout(statsLayout);
+  stats_group_->setLayout(stats_layout);
 
-  // Writer stats group
-  m_writerStatsGroup = new QGroupBox("Writer Statistics");
-  auto* writerStatsLayout = new QFormLayout;
+  writer_stats_group_ = new QGroupBox("Writer Statistics");
+  auto* writer_stats_layout = new QFormLayout;
 
-  m_writerRequestsLabel = new QLabel("0");
-  m_writerSuccessfulLabel = new QLabel("0");
-  m_writerFailedLabel = new QLabel("0");
-  m_writerAvgLatencyLabel = new QLabel("0 ms");
+  writer_requests_label_ = new QLabel("0");
+  writer_successful_label_ = new QLabel("0");
+  writer_failed_label_ = new QLabel("0");
+  writer_avg_latency_label_ = new QLabel("0 ms");
 
-  writerStatsLayout->addRow("Total:", m_writerRequestsLabel);
-  writerStatsLayout->addRow("Successful:", m_writerSuccessfulLabel);
-  writerStatsLayout->addRow("Failed:", m_writerFailedLabel);
-  writerStatsLayout->addRow("Avg Latency:", m_writerAvgLatencyLabel);
+  writer_stats_layout->addRow("Total:", writer_requests_label_);
+  writer_stats_layout->addRow("Successful:", writer_successful_label_);
+  writer_stats_layout->addRow("Failed:", writer_failed_label_);
+  writer_stats_layout->addRow("Avg Latency:", writer_avg_latency_label_);
 
-  m_writerStatsGroup->setLayout(writerStatsLayout);
+  writer_stats_group_->setLayout(writer_stats_layout);
 
-  // Reader stats group
-  m_readerStatsGroup = new QGroupBox("Reader Statistics");
-  auto* readerStatsLayout = new QFormLayout;
+  reader_stats_group_ = new QGroupBox("Reader Statistics");
+  auto* reader_stats_layout = new QFormLayout;
 
-  m_readerRequestsLabel = new QLabel("0");
-  m_readerSuccessfulLabel = new QLabel("0");
-  m_readerFailedLabel = new QLabel("0");
-  m_readerAvgLatencyLabel = new QLabel("0 ms");
+  reader_requests_label_ = new QLabel("0");
+  reader_successful_label_ = new QLabel("0");
+  reader_failed_label_ = new QLabel("0");
+  reader_avg_latency_label_ = new QLabel("0 ms");
 
-  readerStatsLayout->addRow("Total:", m_readerRequestsLabel);
-  readerStatsLayout->addRow("Successful:", m_readerSuccessfulLabel);
-  readerStatsLayout->addRow("Failed:", m_readerFailedLabel);
-  readerStatsLayout->addRow("Avg Latency:", m_readerAvgLatencyLabel);
+  reader_stats_layout->addRow("Total:", reader_requests_label_);
+  reader_stats_layout->addRow("Successful:", reader_successful_label_);
+  reader_stats_layout->addRow("Failed:", reader_failed_label_);
+  reader_stats_layout->addRow("Avg Latency:", reader_avg_latency_label_);
 
-  m_readerStatsGroup->setLayout(readerStatsLayout);
+  reader_stats_group_->setLayout(reader_stats_layout);
 }
 
-void MainWindow::onStartClicked() {
-  BenchmarkRunner::Config config;
-  config.host = m_hostEdit->text();
-  config.port = static_cast<quint16>(m_portSpinBox->value());
-  config.topicName = m_topicEdit->text();
-  config.partitionCount = static_cast<uint32_t>(m_partitionCountSpinBox->value());
-  config.numWriters = m_numWritersSpinBox->value();
-  config.numReaders = m_numReadersSpinBox->value();
-  config.writerQps = m_writerQpsSpinBox->value();
-  config.readerQps = m_readerQpsSpinBox->value();
-  config.messageSize = m_messageSizeSpinBox->value();
+void main_window_t::on_start_clicked() {
+  benchmark_runner_t::config_t config;
+  config.host = host_edit_->text();
+  config.port = static_cast<quint16>(port_spin_box_->value());
+  config.topic_name = topic_edit_->text();
+  config.partition_count = static_cast<uint32_t>(partition_count_spin_box_->value());
+  config.num_writers = num_writers_spin_box_->value();
+  config.num_readers = num_readers_spin_box_->value();
+  config.writer_qps = writer_qps_spin_box_->value();
+  config.reader_qps = reader_qps_spin_box_->value();
+  config.message_size = message_size_spin_box_->value();
 
-  m_runner->setConfig(config);
-  m_runner->start();
+  runner_->set_config(config);
+  runner_->start();
 
-  m_startButton->setEnabled(false);
-  m_stopButton->setEnabled(true);
-  m_pauseButton->setEnabled(true);
-  m_resumeButton->setEnabled(false);
+  start_button_->setEnabled(false);
+  stop_button_->setEnabled(true);
+  pause_button_->setEnabled(true);
+  resume_button_->setEnabled(false);
 
-  // Disable config inputs
-  m_hostEdit->setEnabled(false);
-  m_portSpinBox->setEnabled(false);
-  m_topicEdit->setEnabled(false);
-  m_partitionCountSpinBox->setEnabled(false);
-  m_numWritersSpinBox->setEnabled(false);
-  m_numReadersSpinBox->setEnabled(false);
-  m_writerQpsSpinBox->setEnabled(false);
-  m_readerQpsSpinBox->setEnabled(false);
-  m_messageSizeSpinBox->setEnabled(false);
+  host_edit_->setEnabled(false);
+  port_spin_box_->setEnabled(false);
+  topic_edit_->setEnabled(false);
+  partition_count_spin_box_->setEnabled(false);
+  num_writers_spin_box_->setEnabled(false);
+  num_readers_spin_box_->setEnabled(false);
+  writer_qps_spin_box_->setEnabled(false);
+  reader_qps_spin_box_->setEnabled(false);
+  message_size_spin_box_->setEnabled(false);
 }
 
-void MainWindow::onStopClicked() {
-  m_runner->stop();
+void main_window_t::on_stop_clicked() {
+  runner_->stop();
 
-  m_startButton->setEnabled(true);
-  m_stopButton->setEnabled(false);
-  m_pauseButton->setEnabled(false);
-  m_resumeButton->setEnabled(false);
+  start_button_->setEnabled(true);
+  stop_button_->setEnabled(false);
+  pause_button_->setEnabled(false);
+  resume_button_->setEnabled(false);
 
-  // Enable config inputs
-  m_hostEdit->setEnabled(true);
-  m_portSpinBox->setEnabled(true);
-  m_topicEdit->setEnabled(true);
-  m_partitionCountSpinBox->setEnabled(true);
-  m_numWritersSpinBox->setEnabled(true);
-  m_numReadersSpinBox->setEnabled(true);
-  m_writerQpsSpinBox->setEnabled(true);
-  m_readerQpsSpinBox->setEnabled(true);
-  m_messageSizeSpinBox->setEnabled(true);
+  host_edit_->setEnabled(true);
+  port_spin_box_->setEnabled(true);
+  topic_edit_->setEnabled(true);
+  partition_count_spin_box_->setEnabled(true);
+  num_writers_spin_box_->setEnabled(true);
+  num_readers_spin_box_->setEnabled(true);
+  writer_qps_spin_box_->setEnabled(true);
+  reader_qps_spin_box_->setEnabled(true);
+  message_size_spin_box_->setEnabled(true);
 }
 
-void MainWindow::onPauseClicked() {
-  m_runner->pause();
+void main_window_t::on_pause_clicked() {
+  runner_->pause();
 
-  m_pauseButton->setEnabled(false);
-  m_resumeButton->setEnabled(true);
+  pause_button_->setEnabled(false);
+  resume_button_->setEnabled(true);
 
-  m_statusLabel->setText("Paused");
-  m_statusLabel->setStyleSheet("font-weight: bold; color: #FF9800;");
+  status_label_->setText("Paused");
+  status_label_->setStyleSheet("font-weight: bold; color: #FF9800;");
 }
 
-void MainWindow::onResumeClicked() {
-  m_runner->resume();
+void main_window_t::on_resume_clicked() {
+  runner_->resume();
 
-  m_pauseButton->setEnabled(true);
-  m_resumeButton->setEnabled(false);
+  pause_button_->setEnabled(true);
+  resume_button_->setEnabled(false);
 
-  m_statusLabel->setText("Running");
-  m_statusLabel->setStyleSheet("font-weight: bold; color: #4CAF50;");
+  status_label_->setText("Running");
+  status_label_->setStyleSheet("font-weight: bold; color: #4CAF50;");
 }
 
-void MainWindow::onStatsUpdated(const BenchmarkRunner::AggregatedStats& stats) {
-  updateStatsDisplay(stats);
+void main_window_t::on_stats_updated(const benchmark_runner_t::aggregated_stats_t& stats) {
+  update_stats_display(stats);
 }
 
-void MainWindow::onBenchmarkStarted() {
-  m_statusLabel->setText("Running");
-  m_statusLabel->setStyleSheet("font-weight: bold; color: #4CAF50;");
+void main_window_t::on_benchmark_started() {
+  status_label_->setText("Running");
+  status_label_->setStyleSheet("font-weight: bold; color: #4CAF50;");
 }
 
-void MainWindow::onBenchmarkStopped() {
-  m_statusLabel->setText("Stopped");
-  m_statusLabel->setStyleSheet("font-weight: bold; color: #666;");
-  m_durationLabel->setText("0 RPS");
+void main_window_t::on_benchmark_stopped() {
+  status_label_->setText("Stopped");
+  status_label_->setStyleSheet("font-weight: bold; color: #666;");
+  duration_label_->setText("0 RPS");
 }
 
-void MainWindow::onError(const QString& error) {
+void main_window_t::on_error(const QString& error) {
   qWarning() << "Benchmark error:" << error;
 }
 
-void MainWindow::updateStatsDisplay(const BenchmarkRunner::AggregatedStats& stats) {
-  m_totalRequestsLabel->setText(QString::number(stats.totalRequests));
-  m_successfulRequestsLabel->setText(QString::number(stats.successfulRequests));
-  m_failedRequestsLabel->setText(QString::number(stats.failedRequests));
-  m_rpsLabel->setText(QString::number(stats.requestsPerSecond, 'f', 2));
-  m_avgLatencyLabel->setText(QString::number(stats.avgLatencyMs, 'f', 3) + " ms");
-  m_minLatencyLabel->setText(QString::number(stats.minLatencyMs, 'f', 3) + " ms");
-  m_maxLatencyLabel->setText(QString::number(stats.maxLatencyMs, 'f', 3) + " ms");
-  m_p95LatencyLabel->setText(QString::number(stats.p95LatencyMs, 'f', 3) + " ms");
-  m_p99LatencyLabel->setText(QString::number(stats.p99LatencyMs, 'f', 3) + " ms");
+void main_window_t::update_stats_display(const benchmark_runner_t::aggregated_stats_t& stats) {
+  total_requests_label_->setText(QString::number(stats.total_requests));
+  successful_requests_label_->setText(QString::number(stats.successful_requests));
+  failed_requests_label_->setText(QString::number(stats.failed_requests));
+  rps_label_->setText(QString::number(stats.requests_per_second, 'f', 2));
+  avg_latency_label_->setText(QString::number(stats.avg_latency_ms, 'f', 3) + " ms");
+  min_latency_label_->setText(QString::number(stats.min_latency_ms, 'f', 3) + " ms");
+  max_latency_label_->setText(QString::number(stats.max_latency_ms, 'f', 3) + " ms");
+  p95_latency_label_->setText(QString::number(stats.p95_latency_ms, 'f', 3) + " ms");
+  p99_latency_label_->setText(QString::number(stats.p99_latency_ms, 'f', 3) + " ms");
 
-  m_writerRequestsLabel->setText(QString::number(stats.writerTotalRequests));
-  m_writerSuccessfulLabel->setText(QString::number(stats.writerSuccessfulRequests));
-  m_writerFailedLabel->setText(QString::number(stats.writerFailedRequests));
-  m_writerAvgLatencyLabel->setText(QString::number(stats.writerAvgLatencyMs, 'f', 3) + " ms");
+  writer_requests_label_->setText(QString::number(stats.writer_total_requests));
+  writer_successful_label_->setText(QString::number(stats.writer_successful_requests));
+  writer_failed_label_->setText(QString::number(stats.writer_failed_requests));
+  writer_avg_latency_label_->setText(QString::number(stats.writer_avg_latency_ms, 'f', 3) + " ms");
 
-  m_readerRequestsLabel->setText(QString::number(stats.readerTotalRequests));
-  m_readerSuccessfulLabel->setText(QString::number(stats.readerSuccessfulRequests));
-  m_readerFailedLabel->setText(QString::number(stats.readerFailedRequests));
-  m_readerAvgLatencyLabel->setText(QString::number(stats.readerAvgLatencyMs, 'f', 3) + " ms");
+  reader_requests_label_->setText(QString::number(stats.reader_total_requests));
+  reader_successful_label_->setText(QString::number(stats.reader_successful_requests));
+  reader_failed_label_->setText(QString::number(stats.reader_failed_requests));
+  reader_avg_latency_label_->setText(QString::number(stats.reader_avg_latency_ms, 'f', 3) + " ms");
 }

@@ -3,34 +3,34 @@
 
 #include <cstring>
 
-WriterWorker::WriterWorker(const QString& host,
-                           quint16 port,
-                           const QString& topicName,
-                           uint32_t partitionId,
-                           int qps,
-                           int messageSize,
-                           QObject* parent)
-    : Worker(host, port, topicName, partitionId, qps, parent), m_messageSize(messageSize) {}
+writer_worker_t::writer_worker_t(const QString& host,
+                                 quint16 port,
+                                 const QString& topic_name,
+                                 uint32_t partition_id,
+                                 int qps,
+                                 int message_size,
+                                 QObject* parent)
+    : worker_t(host, port, topic_name, partition_id, qps, parent), message_size_(message_size) {}
 
-void WriterWorker::performRequest() {
+void writer_worker_t::perform_request() {
   QByteArray payload;
-  payload.resize(m_messageSize);
+  payload.resize(message_size_);
 
-  QByteArray seqData = QByteArray::number(m_sequenceNumber++);
-  int seqLen = seqData.size();
+  QByteArray seq_data = QByteArray::number(sequence_number_++);
+  int seq_len = seq_data.size();
 
-  for (int i = 0; i < m_messageSize; ++i) {
+  for (int i = 0; i < message_size_; ++i) {
     payload[i] = static_cast<char>('A' + (i % 26));
   }
 
-  if (seqLen < m_messageSize) {
-    memcpy(payload.data(), seqData.constData(), seqLen);
+  if (seq_len < message_size_) {
+    memcpy(payload.data(), seq_data.constData(), seq_len);
   }
 
-  QByteArray request = createPushMessage(payload);
-  sendRequest(request);
+  QByteArray request = create_push_message(payload);
+  send_request(request);
 }
 
-QByteArray WriterWorker::createPushMessage(const QByteArray& payload) {
-  return ProtocolUtils::createPushRequest(m_topicName.toUtf8(), m_partitionId, payload);
+QByteArray writer_worker_t::create_push_message(const QByteArray& payload) {
+  return protocol_utils_t::create_push_request(topic_name_.toUtf8(), static_cast<uint16_t>(partition_id_), payload);
 }

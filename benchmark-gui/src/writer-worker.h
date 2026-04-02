@@ -2,25 +2,25 @@
 
 #include "worker.h"
 
-class WriterWorker : public Worker {
+class writer_worker_t : public worker_t {
   Q_OBJECT
 
 public:
-  explicit WriterWorker(const QString& host,
-                        quint16 port,
-                        const QString& topicName,
-                        uint32_t partitionId,
-                        int qps,
-                        int messageSize,
-                        QObject* parent = nullptr);
-  ~WriterWorker() override = default;
+  explicit writer_worker_t(const QString& host,
+                           quint16 port,
+                           const QString& topic_name,
+                           uint32_t partition_id,
+                           int qps,
+                           int message_size,
+                           QObject* parent = nullptr);
+  ~writer_worker_t() override = default;
 
 protected:
-  void performRequest() override;
+  void perform_request() override;
 
 private:
-  int m_messageSize;
-  uint64_t m_sequenceNumber = 0;
+  int message_size_;
+  uint64_t sequence_number_ = 0;
 
-  QByteArray createPushMessage(const QByteArray& payload);
+  QByteArray create_push_message(const QByteArray& payload);
 };

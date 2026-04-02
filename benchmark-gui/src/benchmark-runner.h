@@ -13,112 +13,116 @@
 #include "writer-worker.h"
 #include "reader-worker.h"
 
-class BenchmarkRunner : public QObject {
+class benchmark_gui_qt_test_t;
+
+class benchmark_runner_t : public QObject {
   Q_OBJECT
 
-  friend class BenchmarkGuiQtTest;
+  friend class benchmark_gui_qt_test_t;
 
 public:
-  struct Config {
+  struct config_t {
     QString host = "localhost";
     quint16 port = 8080;
-    QString topicName = "test_topic";
-    uint32_t partitionCount = 1;
-    int numWriters = 1;
-    int numReaders = 1;
-    int writerQps = 100;
-    int readerQps = 100;
-    int messageSize = 1024;
+    QString topic_name = "test_topic";
+    uint32_t partition_count = 1;
+    int num_writers = 1;
+    int num_readers = 1;
+    int writer_qps = 100;
+    int reader_qps = 100;
+    int message_size = 1024;
   };
 
-  explicit BenchmarkRunner(QObject* parent = nullptr);
-  ~BenchmarkRunner() override;
+  explicit benchmark_runner_t(QObject* parent = nullptr);
+  ~benchmark_runner_t() override;
 
-  void setConfig(const Config& config);
+  void set_config(const config_t& config);
 
   void start();
   void stop();
   void pause();
   void resume();
 
-  bool isRunning() const {
-    return m_running.load();
+  bool is_running() const {
+    return running_.load();
   }
 
-  struct AggregatedStats {
-    uint64_t totalRequests = 0;
-    uint64_t successfulRequests = 0;
-    uint64_t failedRequests = 0;
-    double avgLatencyMs = 0.0;
-    double minLatencyMs = 0.0;
-    double maxLatencyMs = 0.0;
-    double p95LatencyMs = 0.0;
-    double p99LatencyMs = 0.0;
-    double requestsPerSecond = 0.0;
+  struct aggregated_stats_t {
+    uint64_t total_requests = 0;
+    uint64_t successful_requests = 0;
+    uint64_t failed_requests = 0;
+    double avg_latency_ms = 0.0;
+    double min_latency_ms = 0.0;
+    double max_latency_ms = 0.0;
+    double p95_latency_ms = 0.0;
+    double p99_latency_ms = 0.0;
+    double requests_per_second = 0.0;
 
-    uint64_t writerTotalRequests = 0;
-    uint64_t writerSuccessfulRequests = 0;
-    uint64_t writerFailedRequests = 0;
-    double writerAvgLatencyMs = 0.0;
+    uint64_t writer_total_requests = 0;
+    uint64_t writer_successful_requests = 0;
+    uint64_t writer_failed_requests = 0;
+    double writer_avg_latency_ms = 0.0;
 
-    uint64_t readerTotalRequests = 0;
-    uint64_t readerSuccessfulRequests = 0;
-    uint64_t readerFailedRequests = 0;
-    double readerAvgLatencyMs = 0.0;
+    uint64_t reader_total_requests = 0;
+    uint64_t reader_successful_requests = 0;
+    uint64_t reader_failed_requests = 0;
+    double reader_avg_latency_ms = 0.0;
   };
 
-  AggregatedStats getAggregatedStats() const;
+  aggregated_stats_t get_aggregated_stats() const;
 
 signals:
-  void statsUpdated(const BenchmarkRunner::AggregatedStats& stats);
-  void benchmarkStarted();
-  void benchmarkStopped();
-  void errorOccurred(const QString& error);
+  void stats_updated(const benchmark_runner_t::aggregated_stats_t& stats);
+  void benchmark_started();
+  void benchmark_stopped();
+  void error_occurred(const QString& error);
 
 private slots:
-  void onWorkerStatsUpdated(const Worker::Stats& stats);
+  void on_worker_stats_updated(const worker_t::stats_t& stats);
 
 private:
-  struct LatencyAccumulator {
-    uint64_t sampleCount = 0;
-    uint64_t totalMicros = 0;
+  struct latency_accumulator_t {
+    uint64_t sample_count = 0;
+    uint64_t total_micros = 0;
     std::vector<uint64_t> samples;
   };
 
 public:
-  static constexpr uint32_t kMaxPartitionCount = 1024;
+  static constexpr uint32_t MAX_PARTITION_COUNT = 1024;
 
 private:
-  void createWorkers();
-  void destroyWorkers();
-  [[nodiscard]] bool initializeTopic(QString* errorMessage) const;
-  [[nodiscard]] static bool readResponse(QTcpSocket& socket, ProtocolUtils::Response* response, QString* errorMessage);
-  [[nodiscard]] AggregatedStats buildAggregatedStatsLocked() const;
-  static void recordLatencySample(const Worker::Stats& previousStats,
-                                  const Worker::Stats& currentStats,
-                                  LatencyAccumulator& bucket,
-                                  LatencyAccumulator& totalBucket);
-  [[nodiscard]] static double percentileMs(const std::vector<uint64_t>& samples, double percentile);
-  [[nodiscard]] static double averageLatencyMs(const LatencyAccumulator& accumulator);
-  [[nodiscard]] static double minLatencyMs(const LatencyAccumulator& accumulator);
-  [[nodiscard]] static double maxLatencyMs(const LatencyAccumulator& accumulator);
-  [[nodiscard]] uint32_t randomPartitionForWorker() const noexcept;
+  void create_workers();
+  void destroy_workers();
+  [[nodiscard]] bool initialize_topic(QString* error_message) const;
+  [[nodiscard]] static bool read_response(QTcpSocket& socket,
+                                          protocol_utils_t::response_t* response,
+                                          QString* error_message);
+  [[nodiscard]] aggregated_stats_t build_aggregated_stats_locked() const;
+  static void record_latency_sample(const worker_t::stats_t& previous_stats,
+                                    const worker_t::stats_t& current_stats,
+                                    latency_accumulator_t& bucket,
+                                    latency_accumulator_t& total_bucket);
+  [[nodiscard]] static double percentile_ms(const std::vector<uint64_t>& samples, double percentile);
+  [[nodiscard]] static double average_latency_ms(const latency_accumulator_t& accumulator);
+  [[nodiscard]] static double min_latency_ms(const latency_accumulator_t& accumulator);
+  [[nodiscard]] static double max_latency_ms(const latency_accumulator_t& accumulator);
+  [[nodiscard]] uint32_t random_partition_for_worker() const noexcept;
 
-  Config m_config;
-  std::atomic<bool> m_running{false};
-  std::atomic<bool> m_paused{false};
+  config_t config_;
+  std::atomic<bool> running_{false};
+  std::atomic<bool> paused_{false};
 
-  QVector<QThread*> m_writerThreads;
-  QVector<QThread*> m_readerThreads;
-  QVector<WriterWorker*> m_writers;
-  QVector<ReaderWorker*> m_readers;
+  QVector<QThread*> writer_threads_;
+  QVector<QThread*> reader_threads_;
+  QVector<writer_worker_t*> writers_;
+  QVector<reader_worker_t*> readers_;
 
-  mutable QMutex m_statsMutex;
-  AggregatedStats m_aggregatedStats;
-  QHash<const Worker*, Worker::Stats> m_writerStatsByWorker;
-  QHash<const Worker*, Worker::Stats> m_readerStatsByWorker;
-  LatencyAccumulator m_totalLatency;
-  LatencyAccumulator m_writerLatency;
-  LatencyAccumulator m_readerLatency;
-  std::chrono::steady_clock::time_point m_startTime;
+  mutable QMutex stats_mutex_;
+  aggregated_stats_t aggregated_stats_;
+  QHash<const worker_t*, worker_t::stats_t> writer_stats_by_worker_;
+  QHash<const worker_t*, worker_t::stats_t> reader_stats_by_worker_;
+  latency_accumulator_t total_latency_;
+  latency_accumulator_t writer_latency_;
+  latency_accumulator_t reader_latency_;
+  std::chrono::steady_clock::time_point start_time_;
 };

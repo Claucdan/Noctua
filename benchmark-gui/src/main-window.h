@@ -6,92 +6,83 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QGroupBox>
-#include <QTextEdit>
-#include <QProgressBar>
 #include <QTimer>
 #include <memory>
 #include "benchmark-runner.h"
 
 class QGroupBox;
 
-class MainWindow : public QMainWindow {
+class main_window_t : public QMainWindow {
   Q_OBJECT
 
 public:
-  explicit MainWindow(QWidget* parent = nullptr);
-  ~MainWindow() override;
+  explicit main_window_t(QWidget* parent = nullptr);
+  ~main_window_t() override;
 
 private slots:
-  void onStartClicked();
-  void onStopClicked();
-  void onPauseClicked();
-  void onResumeClicked();
-  void onStatsUpdated(const BenchmarkRunner::AggregatedStats& stats);
-  void onBenchmarkStarted();
-  void onBenchmarkStopped();
-  void onError(const QString& error);
+  void on_start_clicked();
+  void on_stop_clicked();
+  void on_pause_clicked();
+  void on_resume_clicked();
+  void on_stats_updated(const benchmark_runner_t::aggregated_stats_t& stats);
+  void on_benchmark_started();
+  void on_benchmark_stopped();
+  void on_error(const QString& error);
 
 private:
-  void setupUi();
-  void createConnectionGroup();
-  void createWorkerConfigGroup();
-  void createControlButtons();
-  void createStatsDisplay();
-  void updateStatsDisplay(const BenchmarkRunner::AggregatedStats& stats);
+  void setup_ui();
+  void create_connection_group();
+  void create_worker_config_group();
+  void create_control_buttons();
+  void create_stats_display();
+  void update_stats_display(const benchmark_runner_t::aggregated_stats_t& stats);
 
-  std::unique_ptr<BenchmarkRunner> m_runner;
-  QTimer* m_updateTimer;
+  std::unique_ptr<benchmark_runner_t> runner_;
+  QTimer* update_timer_;
 
-  // UI Groups
-  QGroupBox* m_connectionGroup;
-  QGroupBox* m_workerConfigGroup;
-  QGroupBox* m_controlGroup;
-  QGroupBox* m_statusGroup;
-  QGroupBox* m_statsGroup;
-  QGroupBox* m_writerStatsGroup;
-  QGroupBox* m_readerStatsGroup;
+  QGroupBox* connection_group_;
+  QGroupBox* worker_config_group_;
+  QGroupBox* control_group_;
+  QGroupBox* status_group_;
+  QGroupBox* stats_group_;
+  QGroupBox* writer_stats_group_;
+  QGroupBox* reader_stats_group_;
 
-  // Connection settings
-  QLineEdit* m_hostEdit;
-  QSpinBox* m_portSpinBox;
-  QLineEdit* m_topicEdit;
-  QSpinBox* m_partitionCountSpinBox;
+  QLineEdit* host_edit_;
+  QSpinBox* port_spin_box_;
+  QLineEdit* topic_edit_;
+  QSpinBox* partition_count_spin_box_;
 
-  // Worker configuration
-  QSpinBox* m_numWritersSpinBox;
-  QSpinBox* m_numReadersSpinBox;
-  QSpinBox* m_writerQpsSpinBox;
-  QSpinBox* m_readerQpsSpinBox;
-  QSpinBox* m_messageSizeSpinBox;
+  QSpinBox* num_writers_spin_box_;
+  QSpinBox* num_readers_spin_box_;
+  QSpinBox* writer_qps_spin_box_;
+  QSpinBox* reader_qps_spin_box_;
+  QSpinBox* message_size_spin_box_;
 
-  // Control buttons
-  QPushButton* m_startButton;
-  QPushButton* m_stopButton;
-  QPushButton* m_pauseButton;
-  QPushButton* m_resumeButton;
+  QPushButton* start_button_;
+  QPushButton* stop_button_;
+  QPushButton* pause_button_;
+  QPushButton* resume_button_;
 
-  // Stats display
-  QLabel* m_statusLabel;
-  QLabel* m_durationLabel;
-  QLabel* m_totalRequestsLabel;
-  QLabel* m_successfulRequestsLabel;
-  QLabel* m_failedRequestsLabel;
-  QLabel* m_rpsLabel;
-  QLabel* m_avgLatencyLabel;
-  QLabel* m_minLatencyLabel;
-  QLabel* m_maxLatencyLabel;
-  QLabel* m_p95LatencyLabel;
-  QLabel* m_p99LatencyLabel;
+  QLabel* status_label_;
+  QLabel* duration_label_;
+  QLabel* total_requests_label_;
+  QLabel* successful_requests_label_;
+  QLabel* failed_requests_label_;
+  QLabel* rps_label_;
+  QLabel* avg_latency_label_;
+  QLabel* min_latency_label_;
+  QLabel* max_latency_label_;
+  QLabel* p95_latency_label_;
+  QLabel* p99_latency_label_;
 
-  // Writer stats
-  QLabel* m_writerRequestsLabel;
-  QLabel* m_writerSuccessfulLabel;
-  QLabel* m_writerFailedLabel;
-  QLabel* m_writerAvgLatencyLabel;
+  QLabel* writer_requests_label_;
+  QLabel* writer_successful_label_;
+  QLabel* writer_failed_label_;
+  QLabel* writer_avg_latency_label_;
 
-  // Reader stats
-  QLabel* m_readerRequestsLabel;
-  QLabel* m_readerSuccessfulLabel;
-  QLabel* m_readerFailedLabel;
-  QLabel* m_readerAvgLatencyLabel;
+  QLabel* reader_requests_label_;
+  QLabel* reader_successful_label_;
+  QLabel* reader_failed_label_;
+  QLabel* reader_avg_latency_label_;
 };
