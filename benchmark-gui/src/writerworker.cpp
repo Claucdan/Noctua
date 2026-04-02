@@ -1,6 +1,8 @@
 #include "writerworker.h"
 #include "protocolutils.h"
 
+#include <QDebug>
+
 WriterWorker::WriterWorker(const QString& host, quint16 port,
                            const QString& topicName, uint32_t partitionId,
                            int qps, int messageSize,
@@ -29,6 +31,10 @@ void WriterWorker::performRequest() {
     }
 
     QByteArray request = createPushMessage(payload);
+    qInfo().nospace()
+        << "[BENCH][Writer " << this << "] Prepared PUSH payload_size="
+        << payload.size() << " request_size=" << request.size()
+        << " sequence=" << (m_sequenceNumber - 1);
     sendRequest(request);
 }
 
