@@ -92,17 +92,13 @@ void MainWindow::createConnectionGroup() {
     m_portSpinBox->setValue(8080);
 
     m_topicEdit = new QLineEdit("test_topic");
-    m_partitionSpinBox = new QSpinBox;
-    m_partitionSpinBox->setRange(0, static_cast<int>(BenchmarkRunner::kSupportedPartitionCount - 1));
-    m_partitionSpinBox->setValue(0);
     m_partitionCountSpinBox = new QSpinBox;
-    m_partitionCountSpinBox->setRange(1, static_cast<int>(BenchmarkRunner::kSupportedPartitionCount));
+    m_partitionCountSpinBox->setRange(1, static_cast<int>(BenchmarkRunner::kMaxPartitionCount));
     m_partitionCountSpinBox->setValue(1);
 
     layout->addRow("Host:", m_hostEdit);
     layout->addRow("Port:", m_portSpinBox);
     layout->addRow("Topic:", m_topicEdit);
-    layout->addRow("Start Partition:", m_partitionSpinBox);
     layout->addRow("Partition Count:", m_partitionCountSpinBox);
 
     m_connectionGroup->setLayout(layout);
@@ -245,24 +241,12 @@ void MainWindow::onStartClicked() {
     config.host = m_hostEdit->text();
     config.port = static_cast<quint16>(m_portSpinBox->value());
     config.topicName = m_topicEdit->text();
-    config.partitionId = static_cast<uint32_t>(m_partitionSpinBox->value());
     config.partitionCount = static_cast<uint32_t>(m_partitionCountSpinBox->value());
     config.numWriters = m_numWritersSpinBox->value();
     config.numReaders = m_numReadersSpinBox->value();
     config.writerQps = m_writerQpsSpinBox->value();
     config.readerQps = m_readerQpsSpinBox->value();
     config.messageSize = m_messageSizeSpinBox->value();
-
-    if (config.partitionId + config.partitionCount > BenchmarkRunner::kSupportedPartitionCount) {
-        QMessageBox::warning(
-            this,
-            "Invalid Partitions",
-            QString("Supported partition range is 0..%1, but selected range is %2..%3.")
-                .arg(BenchmarkRunner::kSupportedPartitionCount - 1)
-                .arg(config.partitionId)
-                .arg(config.partitionId + config.partitionCount - 1));
-        return;
-    }
 
     m_runner->setConfig(config);
     m_runner->start();
@@ -276,7 +260,6 @@ void MainWindow::onStartClicked() {
     m_hostEdit->setEnabled(false);
     m_portSpinBox->setEnabled(false);
     m_topicEdit->setEnabled(false);
-    m_partitionSpinBox->setEnabled(false);
     m_partitionCountSpinBox->setEnabled(false);
     m_numWritersSpinBox->setEnabled(false);
     m_numReadersSpinBox->setEnabled(false);
@@ -297,7 +280,6 @@ void MainWindow::onStopClicked() {
     m_hostEdit->setEnabled(true);
     m_portSpinBox->setEnabled(true);
     m_topicEdit->setEnabled(true);
-    m_partitionSpinBox->setEnabled(true);
     m_partitionCountSpinBox->setEnabled(true);
     m_numWritersSpinBox->setEnabled(true);
     m_numReadersSpinBox->setEnabled(true);

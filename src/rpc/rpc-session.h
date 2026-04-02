@@ -12,6 +12,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <fmt/core.h>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <cstddef>
@@ -50,6 +51,9 @@ public:
     if (it == topics_.end()) {
       auto [new_it, _] = topics_.emplace(std::move(key), std::make_unique<topic_type_t>(partitions_count, topic_name));
       return new_it->second.get();
+    }
+    if (it->second->partitions_count() < partitions_count) {
+      it->second = std::make_unique<topic_type_t>(partitions_count, topic_name);
     }
     return it->second.get();
   }
@@ -167,14 +171,12 @@ private:
       const request_header_t& header,
       std::string_view topic_name,
       std::string_view message) {
-    static constexpr size_t DEFAULT_TOPIC_PARTITIONS = 3;
-
     if (topic_name.empty()) {
       co_await send_error_response(opcode_t::PUSH, error_code_t::INVALID_TOPIC_NAME, "Empty topic name");
       co_return;
     }
 
-    auto* topic = registry_.get_or_create_topic(topic_name, DEFAULT_TOPIC_PARTITIONS);
+    auto* topic = registry_.get_or_create_topic(topic_name, std::max<size_t>(1, header.partition_id + 1));
     if (header.partition_id != common::INVALID_TOPIC_ID &&
         header.partition_id >= topic->partitions_count()) {
       co_await send_error_response(opcode_t::PUSH, error_code_t::PARTITION_NOT_FOUND, "Invalid partition ID");

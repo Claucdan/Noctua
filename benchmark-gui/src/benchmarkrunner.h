@@ -4,9 +4,11 @@
 #include <QVector>
 #include <QMutex>
 #include <QHash>
+#include <QTcpSocket>
 #include <memory>
 #include <chrono>
 #include <vector>
+#include "protocolutils.h"
 #include "worker.h"
 #include "writerworker.h"
 #include "readerworker.h"
@@ -19,7 +21,6 @@ public:
         QString host = "localhost";
         quint16 port = 8080;
         QString topicName = "test_topic";
-        uint32_t partitionId = 0;
         uint32_t partitionCount = 1;
         int numWriters = 1;
         int numReaders = 1;
@@ -81,12 +82,13 @@ private:
     };
 
 public:
-    static constexpr uint32_t kSupportedPartitionCount = 3;
+    static constexpr uint32_t kMaxPartitionCount = 1024;
 
 private:
-
     void createWorkers();
     void destroyWorkers();
+    [[nodiscard]] bool initializeTopic(QString* errorMessage) const;
+    [[nodiscard]] static bool readResponse(QTcpSocket& socket, ProtocolUtils::Response* response, QString* errorMessage);
     [[nodiscard]] AggregatedStats buildAggregatedStatsLocked() const;
     static void recordLatencySample(const Worker::Stats& previousStats,
                                     const Worker::Stats& currentStats,
@@ -96,7 +98,7 @@ private:
     [[nodiscard]] static double averageLatencyMs(const LatencyAccumulator& accumulator);
     [[nodiscard]] static double minLatencyMs(const LatencyAccumulator& accumulator);
     [[nodiscard]] static double maxLatencyMs(const LatencyAccumulator& accumulator);
-    [[nodiscard]] uint32_t partitionForWorker(int workerIndex) const noexcept;
+    [[nodiscard]] uint32_t randomPartitionForWorker() const noexcept;
 
     Config m_config;
     std::atomic<bool> m_running{false};

@@ -55,7 +55,6 @@ private:
     QLineEdit* m_hostEdit;
     QSpinBox* m_portSpinBox;
     QLineEdit* m_topicEdit;
-    QSpinBox* m_partitionSpinBox;
     QSpinBox* m_partitionCountSpinBox;
 
     // Worker configuration

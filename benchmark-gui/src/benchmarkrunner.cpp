@@ -1,8 +1,12 @@
 #include "benchmarkrunner.h"
 
+#include "protocolutils.h"
+
 #include <QMetaObject>
+#include <QRandomGenerator>
 
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <utility>
 
@@ -62,6 +66,13 @@ void BenchmarkRunner::start() {
         m_totalLatency = LatencyAccumulator{};
         m_writerLatency = LatencyAccumulator{};
         m_readerLatency = LatencyAccumulator{};
+    }
+
+    QString initializationError;
+    if (!initializeTopic(&initializationError)) {
+        m_running.store(false);
+        emit errorOccurred(initializationError);
+        return;
     }
 
     createWorkers();
@@ -147,7 +158,7 @@ void BenchmarkRunner::createWorkers() {
 
     for (int i = 0; i < m_config.numWriters; ++i) {
         auto* thread = new QThread(this);
-        const auto partitionId = partitionForWorker(i);
+        const auto partitionId = randomPartitionForWorker();
         auto* worker = new WriterWorker(
             m_config.host, m_config.port,
             m_config.topicName, partitionId,
@@ -178,7 +189,7 @@ void BenchmarkRunner::createWorkers() {
 
     for (int i = 0; i < m_config.numReaders; ++i) {
         auto* thread = new QThread(this);
-        const auto partitionId = partitionForWorker(i);
+        const auto partitionId = randomPartitionForWorker();
         auto* worker = new ReaderWorker(
             m_config.host, m_config.port,
             m_config.topicName, partitionId,
@@ -232,6 +243,117 @@ void BenchmarkRunner::destroyWorkers() {
     m_totalLatency = LatencyAccumulator{};
     m_writerLatency = LatencyAccumulator{};
     m_readerLatency = LatencyAccumulator{};
+}
+
+bool BenchmarkRunner::initializeTopic(QString* errorMessage) const {
+    if (m_config.partitionCount == 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = "Partition count must be greater than zero";
+        }
+        return false;
+    }
+
+    QTcpSocket socket;
+    socket.connectToHost(m_config.host, m_config.port);
+    if (!socket.waitForConnected(5000)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString("Failed to connect for topic initialization: %1")
+                .arg(socket.errorString());
+        }
+        return false;
+    }
+
+    const auto initPartition = static_cast<uint16_t>(m_config.partitionCount - 1);
+    const QByteArray initMessage = "__benchmark_topic_init__";
+
+    const auto pushRequest =
+        ProtocolUtils::createPushRequest(m_config.topicName.toUtf8(), initPartition, initMessage);
+    if (socket.write(pushRequest) != pushRequest.size() || !socket.waitForBytesWritten(5000)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString("Failed to write initialization PUSH: %1")
+                .arg(socket.errorString());
+        }
+        return false;
+    }
+
+    ProtocolUtils::Response pushResponse;
+    if (!readResponse(socket, &pushResponse, errorMessage)) {
+        return false;
+    }
+    if (!pushResponse.valid ||
+        pushResponse.errorCode != ProtocolUtils::ErrorCode::OK ||
+        pushResponse.opcode != ProtocolUtils::Opcode::PUSH) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString("Initialization PUSH failed: %1")
+                .arg(QString::fromUtf8(pushResponse.message));
+        }
+        return false;
+    }
+
+    const auto deleteRequest =
+        ProtocolUtils::createDeleteRequest(m_config.topicName.toUtf8(), initPartition, initMessage);
+    if (socket.write(deleteRequest) != deleteRequest.size() || !socket.waitForBytesWritten(5000)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString("Failed to write initialization DELETE: %1")
+                .arg(socket.errorString());
+        }
+        return false;
+    }
+
+    ProtocolUtils::Response deleteResponse;
+    if (!readResponse(socket, &deleteResponse, errorMessage)) {
+        return false;
+    }
+    if (!deleteResponse.valid ||
+        deleteResponse.errorCode != ProtocolUtils::ErrorCode::OK ||
+        deleteResponse.opcode != ProtocolUtils::Opcode::DELETE) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString("Initialization DELETE failed: %1")
+                .arg(QString::fromUtf8(deleteResponse.message));
+        }
+        return false;
+    }
+
+    socket.disconnectFromHost();
+    return true;
+}
+
+bool BenchmarkRunner::readResponse(
+    QTcpSocket& socket,
+    ProtocolUtils::Response* response,
+    QString* errorMessage) {
+    QByteArray buffer;
+
+    while (buffer.size() < static_cast<int>(sizeof(noctua::rpc::response_header_t))) {
+        if (!socket.waitForReadyRead(5000)) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QString("Timed out waiting for response header: %1")
+                    .arg(socket.errorString());
+            }
+            return false;
+        }
+        buffer.append(socket.readAll());
+    }
+
+    noctua::rpc::response_header_t header{};
+    std::memcpy(&header, buffer.constData(), sizeof(header));
+    const auto totalLength = sizeof(header) + static_cast<size_t>(header.message_len);
+
+    while (buffer.size() < static_cast<int>(totalLength)) {
+        if (!socket.waitForReadyRead(5000)) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QString("Timed out waiting for full response: %1")
+                    .arg(socket.errorString());
+            }
+            return false;
+        }
+        buffer.append(socket.readAll());
+    }
+
+    if (response != nullptr) {
+        *response = ProtocolUtils::parseResponse(buffer.left(static_cast<int>(totalLength)));
+    }
+    return true;
 }
 
 BenchmarkRunner::AggregatedStats BenchmarkRunner::buildAggregatedStatsLocked() const {
@@ -321,8 +443,6 @@ double BenchmarkRunner::maxLatencyMs(const LatencyAccumulator& accumulator) {
     return static_cast<double>(*std::max_element(accumulator.samples.begin(), accumulator.samples.end())) / 1000.0;
 }
 
-uint32_t BenchmarkRunner::partitionForWorker(int workerIndex) const noexcept {
-    const auto partitionCount = std::max<uint32_t>(1, m_config.partitionCount);
-    const auto offset = static_cast<uint32_t>(workerIndex % static_cast<int>(partitionCount));
-    return m_config.partitionId + offset;
+uint32_t BenchmarkRunner::randomPartitionForWorker() const noexcept {
+    return QRandomGenerator::global()->bounded(m_config.partitionCount);
 }
