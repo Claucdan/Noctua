@@ -6,22 +6,22 @@ include_dirs = include_directories('..', '../src')
 
 app_moc_sources = qt6.preprocess(
     moc_headers: files(
-        'src/mainwindow.h',
+        'src/main-window.h',
         'src/worker.h',
-        'src/writerworker.h',
-        'src/readerworker.h',
-        'src/benchmarkrunner.h'
+        'src/writer-worker.h',
+        'src/reader-worker.h',
+        'src/benchmark-runner.h'
     )
 )
 
 sources = files(
     'src/main.cpp',
-    'src/mainwindow.cpp',
+    'src/main-window.cpp',
     'src/worker.cpp',
-    'src/writerworker.cpp',
-    'src/readerworker.cpp',
-    'src/benchmarkrunner.cpp',
-    'src/protocolutils.cpp'
+    'src/writer-worker.cpp',
+    'src/reader-worker.cpp',
+    'src/benchmark-runner.cpp',
+    'src/protocol-utils.cpp'
 )
 
 executable('noctua-benchmark',
@@ -35,9 +35,9 @@ executable('noctua-benchmark',
 test_support_moc_sources = qt6.preprocess(
     moc_headers: files(
         'src/worker.h',
-        'src/writerworker.h',
-        'src/readerworker.h',
-        'src/benchmarkrunner.h',
+        'src/writer-worker.h',
+        'src/reader-worker.h',
+        'src/benchmark-runner.h',
         'test/benchmark-gui-qt-test.h',
     )
 )
@@ -47,10 +47,10 @@ benchmark_gui_test = executable(
     files(
         'test/benchmark-gui-qt-test.cpp',
         'src/worker.cpp',
-        'src/writerworker.cpp',
-        'src/readerworker.cpp',
-        'src/benchmarkrunner.cpp',
-        'src/protocolutils.cpp',
+        'src/writer-worker.cpp',
+        'src/reader-worker.cpp',
+        'src/benchmark-runner.cpp',
+        'src/protocol-utils.cpp',
     ),
     test_support_moc_sources,
     dependencies: [

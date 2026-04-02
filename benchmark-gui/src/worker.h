@@ -18,75 +18,78 @@
 #include <cstdint>
 
 class Worker : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    struct Stats {
-        uint64_t totalRequests = 0;
-        uint64_t successfulRequests = 0;
-        uint64_t failedRequests = 0;
-        uint64_t latencySampleCount = 0;
-        uint64_t latencyTotalMicros = 0;
-        uint64_t lastLatencyMicros = 0;
-        bool hasLatencySample = false;
-        double avgLatencyMs = 0.0;
-        double minLatencyMs = 0.0;
-        double maxLatencyMs = 0.0;
-        double p95LatencyMs = 0.0;
-        double p99LatencyMs = 0.0;
-    };
+  struct Stats {
+    uint64_t totalRequests = 0;
+    uint64_t successfulRequests = 0;
+    uint64_t failedRequests = 0;
+    uint64_t latencySampleCount = 0;
+    uint64_t latencyTotalMicros = 0;
+    uint64_t lastLatencyMicros = 0;
+    bool hasLatencySample = false;
+    double avgLatencyMs = 0.0;
+    double minLatencyMs = 0.0;
+    double maxLatencyMs = 0.0;
+    double p95LatencyMs = 0.0;
+    double p99LatencyMs = 0.0;
+  };
 
-    explicit Worker(const QString& host, quint16 port,
-                    const QString& topicName, uint32_t partitionId,
-                    int qps, QObject* parent = nullptr);
-    virtual ~Worker();
+  explicit Worker(const QString& host,
+                  quint16 port,
+                  const QString& topicName,
+                  uint32_t partitionId,
+                  int qps,
+                  QObject* parent = nullptr);
+  virtual ~Worker();
 
-    void start();
-    void stop();
-    void pause();
-    void resume();
+  void start();
+  void stop();
+  void pause();
+  void resume();
 
-    Stats getStats() const;
+  Stats getStats() const;
 
 signals:
-    void statsUpdated(const Worker::Stats& stats);
-    void errorOccurred(const QString& error);
+  void statsUpdated(const Worker::Stats& stats);
+  void errorOccurred(const QString& error);
 
 protected:
-    virtual void performRequest() = 0;
-    void updateStats(uint64_t latencyMicros, bool success);
-    void sendRequest(const QByteArray& data);
-    void processResponse(const QByteArray& data);
-    void reconnect();
-    void connectToHost();
-    void recordFailedPendingRequests();
-    [[nodiscard]] uint64_t currentTimeMicros() const;
+  virtual void performRequest() = 0;
+  void updateStats(uint64_t latencyMicros, bool success);
+  void sendRequest(const QByteArray& data);
+  void processResponse(const QByteArray& data);
+  void reconnect();
+  void connectToHost();
+  void recordFailedPendingRequests();
+  [[nodiscard]] uint64_t currentTimeMicros() const;
 
 protected slots:
-    virtual void onConnected();
-    virtual void onDisconnected();
-    virtual void onErrorOccurred(QAbstractSocket::SocketError socketError);
-    virtual void onReadyRead();
+  virtual void onConnected();
+  virtual void onDisconnected();
+  virtual void onErrorOccurred(QAbstractSocket::SocketError socketError);
+  virtual void onReadyRead();
 
-    void onRequestTimer();
+  void onRequestTimer();
 
 protected:
-    QString m_host;
-    quint16 m_port;
-    QString m_topicName;
-    uint32_t m_partitionId;
-    int m_qps;
-    std::atomic<bool> m_running{false};
-    std::atomic<bool> m_paused{false};
+  QString m_host;
+  quint16 m_port;
+  QString m_topicName;
+  uint32_t m_partitionId;
+  int m_qps;
+  std::atomic<bool> m_running{false};
+  std::atomic<bool> m_paused{false};
 
-    std::unique_ptr<QTcpSocket> m_socket;
-    QTimer* m_requestTimer;
+  std::unique_ptr<QTcpSocket> m_socket;
+  QTimer* m_requestTimer;
 
-    mutable QMutex m_statsMutex;
-    Stats m_stats;
-    QByteArray m_buffer;  // Buffer for incoming data
-    mutable QMutex m_pendingMutex;
-    std::deque<uint64_t> m_pendingSendTimes;
+  mutable QMutex m_statsMutex;
+  Stats m_stats;
+  QByteArray m_buffer; // Buffer for incoming data
+  mutable QMutex m_pendingMutex;
+  std::deque<uint64_t> m_pendingSendTimes;
 };
 
 Q_DECLARE_METATYPE(Worker::Stats)
