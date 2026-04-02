@@ -6,13 +6,16 @@
 #include <QTimer>
 #include <QByteArray>
 #include <QMutex>
+#include <QMutexLocker>
+#include <QMetaType>
 #include <atomic>
-#include <memory>
 #include <deque>
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include <chrono>
 #include <limits>
+#include <cstdint>
 
 class Worker : public QObject {
     Q_OBJECT
@@ -22,7 +25,10 @@ public:
         uint64_t totalRequests = 0;
         uint64_t successfulRequests = 0;
         uint64_t failedRequests = 0;
-        std::deque<uint64_t> latencyMicros;  // Last 1000 latencies for statistics
+        uint64_t latencySampleCount = 0;
+        uint64_t latencyTotalMicros = 0;
+        uint64_t lastLatencyMicros = 0;
+        bool hasLatencySample = false;
         double avgLatencyMs = 0.0;
         double minLatencyMs = 0.0;
         double maxLatencyMs = 0.0;
@@ -53,6 +59,8 @@ protected:
     void processResponse(const QByteArray& data);
     void reconnect();
     void connectToHost();
+    void recordFailedPendingRequests();
+    [[nodiscard]] uint64_t currentTimeMicros() const;
 
 protected slots:
     virtual void onConnected();
@@ -76,6 +84,9 @@ protected:
 
     mutable QMutex m_statsMutex;
     Stats m_stats;
-    std::atomic<uint64_t> m_lastSendTime{0};
     QByteArray m_buffer;  // Buffer for incoming data
+    mutable QMutex m_pendingMutex;
+    std::deque<uint64_t> m_pendingSendTimes;
 };
+
+Q_DECLARE_METATYPE(Worker::Stats)

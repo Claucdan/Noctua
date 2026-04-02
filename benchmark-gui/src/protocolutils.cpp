@@ -1,111 +1,72 @@
 #include "protocolutils.h"
-#include <QDataStream>
-#include <QIODevice>
 
-QByteArray ProtocolUtils::createPushRequest(const QByteArray& topicName, uint32_t partitionId, const QByteArray& message) {
+#include <cstddef>
+#include <cstring>
+
+namespace {
+
+QByteArray createRequest(noctua::rpc::opcode_t opcode,
+                         const QByteArray& topicName,
+                         uint16_t partitionId,
+                         const QByteArray& message) {
+    noctua::rpc::request_header_t header{};
+    header.magic = noctua::rpc::RPC_MAGIC;
+    header.opcode = opcode;
+    header.topic_name_len = static_cast<uint16_t>(topicName.size());
+    header.partition_id = partitionId;
+    header.message_len = static_cast<uint16_t>(message.size());
+
     QByteArray packet;
-    QDataStream stream(&packet, QIODevice::WriteOnly);
-    stream.setByteOrder(QDataStream::LittleEndian);
+    packet.resize(static_cast<int>(sizeof(header) + topicName.size() + message.size()));
 
-    // Magic number: 0x4E4F4355 ("NOCU")
-    stream << static_cast<uint32_t>(0x4E4F4355);
-    // Opcode: PUSH
-    stream << static_cast<uint8_t>(Opcode::PUSH);
-    // Topic name length
-    stream << static_cast<uint32_t>(topicName.size());
-    // Partition ID
-    stream << partitionId;
-    // Message length
-    stream << static_cast<uint64_t>(message.size());
-
-    // Topic name
-    stream.writeRawData(topicName.constData(), topicName.size());
-
-    // Message
+    auto* out = reinterpret_cast<std::byte*>(packet.data());
+    std::memcpy(out, &header, sizeof(header));
+    std::memcpy(out + sizeof(header), topicName.constData(), static_cast<size_t>(topicName.size()));
     if (!message.isEmpty()) {
-        stream.writeRawData(message.constData(), message.size());
+        std::memcpy(out + sizeof(header) + topicName.size(), message.constData(), static_cast<size_t>(message.size()));
     }
 
     return packet;
 }
 
-QByteArray ProtocolUtils::createPullRequest(const QByteArray& topicName, uint32_t partitionId) {
-    QByteArray packet;
-    QDataStream stream(&packet, QIODevice::WriteOnly);
-    stream.setByteOrder(QDataStream::LittleEndian);
+} // namespace
 
-    // Magic number: 0x4E4F4355 ("NOCU")
-    stream << static_cast<uint32_t>(0x4E4F4355);
-    // Opcode: PULL
-    stream << static_cast<uint8_t>(Opcode::PULL);
-    // Topic name length
-    stream << static_cast<uint32_t>(topicName.size());
-    // Partition ID
-    stream << partitionId;
-    // Message length (0 for pull)
-    stream << static_cast<uint64_t>(0);
-
-    // Topic name
-    stream.writeRawData(topicName.constData(), topicName.size());
-
-    return packet;
+QByteArray ProtocolUtils::createPushRequest(const QByteArray& topicName, uint16_t partitionId, const QByteArray& message) {
+    return createRequest(Opcode::PUSH, topicName, partitionId, message);
 }
 
-QByteArray ProtocolUtils::createDeleteRequest(const QByteArray& topicName, uint32_t partitionId) {
-    QByteArray packet;
-    QDataStream stream(&packet, QIODevice::WriteOnly);
-    stream.setByteOrder(QDataStream::LittleEndian);
+QByteArray ProtocolUtils::createPullRequest(const QByteArray& topicName, uint16_t partitionId) {
+    return createRequest(Opcode::PULL, topicName, partitionId, {});
+}
 
-    // Magic number: 0x4E4F4355 ("NOCU")
-    stream << static_cast<uint32_t>(0x4E4F4355);
-    // Opcode: DELETE
-    stream << static_cast<uint8_t>(Opcode::DELETE);
-    // Topic name length
-    stream << static_cast<uint32_t>(topicName.size());
-    // Partition ID
-    stream << partitionId;
-    // Message length (0 for delete)
-    stream << static_cast<uint64_t>(0);
-
-    // Topic name
-    stream.writeRawData(topicName.constData(), topicName.size());
-
-    return packet;
+QByteArray ProtocolUtils::createDeleteRequest(const QByteArray& topicName, uint16_t partitionId, const QByteArray& message) {
+    return createRequest(Opcode::DELETE, topicName, partitionId, message);
 }
 
 ProtocolUtils::Response ProtocolUtils::parseResponse(const QByteArray& data) {
     Response response;
-    response.opcode = Opcode::ERROR;
-    response.errorCode = 0;
 
-    if (data.size() < 14) {
-        return response;  // Invalid response
+    if (data.size() < static_cast<int>(sizeof(noctua::rpc::response_header_t))) {
+        return response;
     }
 
-    QDataStream stream(data);
-    stream.setByteOrder(QDataStream::LittleEndian);
+    noctua::rpc::response_header_t header{};
+    std::memcpy(&header, data.constData(), sizeof(header));
 
-    uint32_t magic;
-    uint8_t opcode;
-    uint8_t errorCode;
-    uint64_t messageLen;
-
-    stream >> magic;
-
-    if (magic != 0x4E4F4355) {
-        return response;  // Invalid magic number
+    if (header.magic != noctua::rpc::RPC_MAGIC) {
+        return response;
     }
 
-    stream >> opcode;
-    stream >> errorCode;
-    stream >> messageLen;
+    const auto totalSize = sizeof(header) + static_cast<size_t>(header.message_len);
+    if (data.size() < static_cast<int>(totalSize)) {
+        return response;
+    }
 
-    response.opcode = static_cast<Opcode>(opcode);
-    response.errorCode = errorCode;
-
-    if (messageLen > 0 && stream.device()->bytesAvailable() >= static_cast<qint64>(messageLen)) {
-        response.message.resize(static_cast<int>(messageLen));
-        stream.readRawData(response.message.data(), static_cast<int>(messageLen));
+    response.valid = true;
+    response.opcode = header.opcode;
+    response.errorCode = header.error_code;
+    if (header.message_len > 0) {
+        response.message = data.mid(static_cast<int>(sizeof(header)), header.message_len);
     }
 
     return response;

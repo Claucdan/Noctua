@@ -1,8 +1,11 @@
 #include "worker.h"
 #include "protocolutils.h"
-#include <QCoreApplication>
+
+#include "rpc/rpc-protocol.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 Worker::Worker(const QString& host, quint16 port,
                const QString& topicName, uint32_t partitionId,
@@ -54,6 +57,12 @@ void Worker::stop() {
     if (m_socket->isOpen()) {
         m_socket->disconnectFromHost();
     }
+
+    {
+        QMutexLocker locker(&m_pendingMutex);
+        m_pendingSendTimes.clear();
+    }
+    m_buffer.clear();
 }
 
 void Worker::pause() {
@@ -87,6 +96,7 @@ void Worker::updateStats(uint64_t latencyMicros, bool success) {
     QMutexLocker locker(&m_statsMutex);
 
     m_stats.totalRequests++;
+    m_stats.hasLatencySample = false;
 
     if (success) {
         m_stats.successfulRequests++;
@@ -94,41 +104,28 @@ void Worker::updateStats(uint64_t latencyMicros, bool success) {
         m_stats.failedRequests++;
     }
 
-    // Store latency (keep only last 1000 samples)
-    m_stats.latencyMicros.push_back(latencyMicros);
-    if (m_stats.latencyMicros.size() > 1000) {
-        m_stats.latencyMicros.pop_front();
-    }
+    if (latencyMicros > 0) {
+        m_stats.latencySampleCount++;
+        m_stats.latencyTotalMicros += latencyMicros;
+        m_stats.lastLatencyMicros = latencyMicros;
+        m_stats.hasLatencySample = true;
 
-    // Calculate statistics
-    if (!m_stats.latencyMicros.empty()) {
-        uint64_t sum = 0;
-        uint64_t minLatency = std::numeric_limits<uint64_t>::max();
-        uint64_t maxLatency = 0;
-
-        for (uint64_t lat : m_stats.latencyMicros) {
-            sum += lat;
-            if (lat < minLatency) minLatency = lat;
-            if (lat > maxLatency) maxLatency = lat;
+        if (m_stats.latencySampleCount == 1) {
+            m_stats.minLatencyMs = static_cast<double>(latencyMicros) / 1000.0;
+            m_stats.maxLatencyMs = static_cast<double>(latencyMicros) / 1000.0;
+        } else {
+            m_stats.minLatencyMs =
+                std::min(m_stats.minLatencyMs, static_cast<double>(latencyMicros) / 1000.0);
+            m_stats.maxLatencyMs =
+                std::max(m_stats.maxLatencyMs, static_cast<double>(latencyMicros) / 1000.0);
         }
 
-        m_stats.avgLatencyMs = static_cast<double>(sum) / m_stats.latencyMicros.size() / 1000.0;
-        m_stats.minLatencyMs = static_cast<double>(minLatency) / 1000.0;
-        m_stats.maxLatencyMs = static_cast<double>(maxLatency) / 1000.0;
-
-        // Calculate percentiles
-        std::vector<uint64_t> sorted(m_stats.latencyMicros.begin(), m_stats.latencyMicros.end());
-        std::sort(sorted.begin(), sorted.end());
-
-        size_t p95Index = static_cast<size_t>(sorted.size() * 0.95);
-        size_t p99Index = static_cast<size_t>(sorted.size() * 0.99);
-
-        if (p95Index < sorted.size()) {
-            m_stats.p95LatencyMs = static_cast<double>(sorted[p95Index]) / 1000.0;
-        }
-        if (p99Index < sorted.size()) {
-            m_stats.p99LatencyMs = static_cast<double>(sorted[p99Index]) / 1000.0;
-        }
+        m_stats.avgLatencyMs =
+            static_cast<double>(m_stats.latencyTotalMicros) /
+            static_cast<double>(m_stats.latencySampleCount) /
+            1000.0;
+        m_stats.p95LatencyMs = m_stats.maxLatencyMs;
+        m_stats.p99LatencyMs = m_stats.maxLatencyMs;
     }
 
     emit statsUpdated(m_stats);
@@ -136,20 +133,36 @@ void Worker::updateStats(uint64_t latencyMicros, bool success) {
 
 void Worker::sendRequest(const QByteArray& data) {
     if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        m_lastSendTime.store(std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count());
-        m_socket->write(data);
+        const auto sendTime = currentTimeMicros();
+        const auto bytesQueued = m_socket->write(data);
+        if (bytesQueued == data.size()) {
+            QMutexLocker locker(&m_pendingMutex);
+            m_pendingSendTimes.push_back(sendTime);
+        }
     }
 }
 
 void Worker::processResponse(const QByteArray& data) {
     auto response = ProtocolUtils::parseResponse(data);
 
-    uint64_t currentTime = std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
-    uint64_t latencyMicros = currentTime - m_lastSendTime.load();
+    uint64_t sendTime = 0;
+    {
+        QMutexLocker locker(&m_pendingMutex);
+        if (!m_pendingSendTimes.empty()) {
+            sendTime = m_pendingSendTimes.front();
+            m_pendingSendTimes.pop_front();
+        }
+    }
 
-    bool success = (response.errorCode == 0 && response.opcode != ProtocolUtils::Opcode::ERROR);
+    uint64_t latencyMicros = 0;
+    if (sendTime != 0) {
+        latencyMicros = currentTimeMicros() - sendTime;
+    }
+
+    const bool success =
+        response.valid &&
+        response.errorCode == noctua::rpc::error_code_t::OK &&
+        response.opcode != noctua::rpc::opcode_t::ERROR;
     updateStats(latencyMicros, success);
 }
 
@@ -169,6 +182,7 @@ void Worker::onConnected() {
 
 void Worker::onDisconnected() {
     m_requestTimer->stop();
+    recordFailedPendingRequests();
     if (m_running.load()) {
         reconnect();
     }
@@ -177,32 +191,22 @@ void Worker::onDisconnected() {
 void Worker::onErrorOccurred(QAbstractSocket::SocketError socketError) {
     Q_UNUSED(socketError);
     emit errorOccurred(m_socket->errorString());
-    if (m_running.load()) {
-        updateStats(0, false);  // Count as failed request
-    }
+    recordFailedPendingRequests();
 }
 
 void Worker::onReadyRead() {
     m_buffer.append(m_socket->readAll());
 
-    // Process complete responses
-    while (m_buffer.size() >= 14) {
-        // Read message length (bytes 6-13)
-        QDataStream stream(m_buffer);
-        stream.setByteOrder(QDataStream::LittleEndian);
-        stream.skipRawData(6);  // Skip magic and opcode
-
-        uint64_t messageLen;
-        stream >> messageLen;
-
-        size_t totalLen = 14 + static_cast<size_t>(messageLen);
+    while (m_buffer.size() >= static_cast<int>(sizeof(noctua::rpc::response_header_t))) {
+        noctua::rpc::response_header_t header{};
+        std::memcpy(&header, m_buffer.constData(), sizeof(header));
+        const size_t totalLen = sizeof(header) + static_cast<size_t>(header.message_len);
 
         if (m_buffer.size() >= static_cast<int>(totalLen)) {
             QByteArray response = m_buffer.left(static_cast<int>(totalLen));
             m_buffer.remove(0, static_cast<int>(totalLen));
             processResponse(response);
         } else {
-            // Wait for more data
             break;
         }
     }
@@ -212,4 +216,22 @@ void Worker::onRequestTimer() {
     if (m_running.load() && !m_paused.load()) {
         performRequest();
     }
+}
+
+void Worker::recordFailedPendingRequests() {
+    size_t failedCount = 0;
+    {
+        QMutexLocker locker(&m_pendingMutex);
+        failedCount = m_pendingSendTimes.size();
+        m_pendingSendTimes.clear();
+    }
+
+    for (size_t i = 0; i < failedCount; ++i) {
+        updateStats(0, false);
+    }
+}
+
+uint64_t Worker::currentTimeMicros() const {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
 }

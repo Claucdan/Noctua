@@ -3,7 +3,10 @@
 #include <QObject>
 #include <QVector>
 #include <QMutex>
+#include <QHash>
 #include <memory>
+#include <chrono>
+#include <vector>
 #include "worker.h"
 #include "writerworker.h"
 #include "readerworker.h"
@@ -70,8 +73,23 @@ private slots:
     void onWorkerStatsUpdated(const Worker::Stats& stats);
 
 private:
+    struct LatencyAccumulator {
+        uint64_t sampleCount = 0;
+        uint64_t totalMicros = 0;
+        std::vector<uint64_t> samples;
+    };
+
     void createWorkers();
     void destroyWorkers();
+    [[nodiscard]] AggregatedStats buildAggregatedStatsLocked() const;
+    static void recordLatencySample(const Worker::Stats& previousStats,
+                                    const Worker::Stats& currentStats,
+                                    LatencyAccumulator& bucket,
+                                    LatencyAccumulator& totalBucket);
+    [[nodiscard]] static double percentileMs(const std::vector<uint64_t>& samples, double percentile);
+    [[nodiscard]] static double averageLatencyMs(const LatencyAccumulator& accumulator);
+    [[nodiscard]] static double minLatencyMs(const LatencyAccumulator& accumulator);
+    [[nodiscard]] static double maxLatencyMs(const LatencyAccumulator& accumulator);
 
     Config m_config;
     std::atomic<bool> m_running{false};
@@ -84,5 +102,10 @@ private:
 
     mutable QMutex m_statsMutex;
     AggregatedStats m_aggregatedStats;
+    QHash<const Worker*, Worker::Stats> m_writerStatsByWorker;
+    QHash<const Worker*, Worker::Stats> m_readerStatsByWorker;
+    LatencyAccumulator m_totalLatency;
+    LatencyAccumulator m_writerLatency;
+    LatencyAccumulator m_readerLatency;
     std::chrono::steady_clock::time_point m_startTime;
 };
